@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package dk.ufst.ticketauth
 
 import android.util.Log
