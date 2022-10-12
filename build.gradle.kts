@@ -9,26 +9,8 @@ buildscript {
     }
 }
 
-plugins {
-    java
-    kotlin("jvm") version "1.6.0"
-    `maven-publish`
-}
-
 tasks {
     registering(Delete::class) {
         delete(buildDir)
-    }
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            groupId = "com.github.skat"
-            artifactId = "ticketauth-android"
-            version = "1.0.0"
-
-            from(components["java"])
-        }
     }
 }

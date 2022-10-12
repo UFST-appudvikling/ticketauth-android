@@ -119,11 +119,10 @@ internal class AuthEngineImpl(
     override fun launchLogoutIntent() {
         log("Launching logout intent")
         authState.idToken?.let {
-            val endSessionRequest = EndSessionRequest.Builder(
-                serviceConfig,
-                it,
-                Uri.parse(redirectUri)
-            ).build()
+            val endSessionRequest = EndSessionRequest.Builder(serviceConfig)
+                .setIdTokenHint(it)
+                .setPostLogoutRedirectUri(Uri.parse(redirectUri))
+                .build()
             val endSessionIntent = authService.getEndSessionRequestIntent(endSessionRequest)
             startForResultLogout.launch(endSessionIntent)
         } ?: run {

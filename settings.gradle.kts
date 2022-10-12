@@ -10,4 +10,3 @@ dependencyResolutionManagement {
 rootProject.name = "TicketAuth"
 
 include(":ticketauth")
-include(":appauth")

@@ -1,6 +1,7 @@
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
+    `maven-publish`
 }
 
 android {
@@ -30,15 +31,36 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
     }
+
+    publishing {
+        multipleVariants {
+            withSourcesJar()
+            withJavadocJar()
+            allVariants()
+        }
+    }
 }
 
 dependencies {
     implementation("androidx.core:core-ktx:1.8.0")
     implementation("androidx.appcompat:appcompat:1.5.1")
     implementation("androidx.browser:browser:1.4.0")
-    //implementation("com.squareup.okhttp3:okhttp:4.10.0")
-    //implementation("com.squareup.okhttp3:logging-interceptor:4.10.0")
-    // Pre-built local libraries
-    implementation(project(":appauth", configuration = "default"))
+    implementation("net.openid:appauth:0.11.1")
     testImplementation("junit:junit:4.13.2")
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            // Creates a Maven publication called "release".
+            create<MavenPublication>("release") {
+                // Applies the component for the release build variant.
+                from(components["release"])
+                groupId = "dk.ufst.ticketauth"
+                artifactId = "ticketauth"
+                version = "1.0.0"
+
+            }
+        }
+    }
 }
