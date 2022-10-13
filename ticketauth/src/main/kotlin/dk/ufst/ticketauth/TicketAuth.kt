@@ -11,14 +11,9 @@ typealias ActivityProvider = (()-> ComponentActivity)?
 object TicketAuth {
     private var engine: AuthEngineImpl? = null
     private var debug: Boolean = false
-    private val authenticator: Authenticator by lazy {
-        AuthenticatorImpl(engine!!)
-    }
+    private var authenticator: Authenticator? = null
 
     fun setup(config: TicketAuthConfig) {
-        if(engine != null) {
-            throw(RuntimeException("TicketAuth already initialized"))
-        }
         debug = config.debug
         engine = AuthEngineImpl(
             sharedPrefs = config.sharedPrefs,
@@ -27,6 +22,7 @@ object TicketAuth {
             clientId = config.clientId,
             scopes = config.scopes
         )
+        authenticator = AuthenticatorImpl(engine!!)
     }
 
     fun installActivityProvider(activityProvider: ActivityProvider) {
@@ -36,7 +32,7 @@ object TicketAuth {
 
     fun authenticator(): Authenticator {
         checkInit()
-        return authenticator
+        return authenticator!!
     }
 
     val accessToken: String?
