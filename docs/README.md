@@ -24,6 +24,10 @@ TicketAuth.installActivityProvider { this }
 
 Auth state is automatically persisted (which is why setup takes a SharedPreferences object).
 
+The installActivityProvider method uses the provided activity to register "startActivityForResult" handlers,
+which the library use to communicate with the system browser.
+
+
 ## Authenticator object
 When TicketAuth is configured you can get a Authenticator object like this:
 
