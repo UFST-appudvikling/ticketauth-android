@@ -1,5 +1,22 @@
 # ticketauth-android
 
-## IDE setup
+Android library that simplifies OAuth Code flow (web logins).
 
-In order to build the project, you are required to use the latest stable version of [Android Studio](https://developer.android.com/studio), which is called Arctic Fox. This is required because the app is written in [Jetpack Compose](https://developer.android.com/jetpack/compose).
+# Usage
+
+First setup the library. Call this from your activity's onCreate method (fx):
+```
+TicketAuth.setup(
+    TicketAuthConfig.Builder()
+        .sharedPrefs(getSharedPreferences("appsettings", Context.MODE_PRIVATE))
+        .context(this)
+        .dcsBaseUrl("https://baseurl")
+        .clientId("clientId")
+        .scopes("openid")
+        .debug(true)
+        .build()
+)
+
+TicketAuth.installActivityProvider { this }
+```
+
