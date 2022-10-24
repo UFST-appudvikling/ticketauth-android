@@ -14,7 +14,7 @@ TicketAuth.setup(
         .context(this)
         .dcsBaseUrl("https://baseurl")
         .clientId("clientId")
-        .scopes("openid")
+        .scopes("scope1 scope2 scope3")
         .debug(true)
         .build()
 )
@@ -40,7 +40,7 @@ a valid access token.
 ```
 if(authenticator.prepareCall()) {
     // perform network call
-} {
+} else {
     // login failed or was cancelled by the user
     // deal with this at the application level
 }
