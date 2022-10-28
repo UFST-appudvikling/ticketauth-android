@@ -4,6 +4,13 @@ Small android library that simplifies OAuth Code flow (web logins).
 
 # Usage
 
+## Gradle dependency
+```
+implementation("com.github.skat:ticketauth-android:$VERSION")
+```
+Where $VERSION is a release, tag or branch snap. Check [jitpack.io](https://jitpack.io)
+for all available options.
+
 ## Setup
 
 First setup the library. Call this from your activity's onCreate method (fx):
