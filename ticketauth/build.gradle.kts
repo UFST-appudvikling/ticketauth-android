@@ -46,6 +46,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.5.1")
     implementation("androidx.browser:browser:1.4.0")
     implementation("net.openid:appauth:0.11.1")
+    testImplementation("io.github.ivanshafran:shared-preferences-mock:1.2.4")
     testImplementation("junit:junit:4.13.2")
 }
 
