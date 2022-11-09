@@ -1,5 +1,6 @@
 package dk.ufst.ticketauth
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -45,6 +46,15 @@ internal class AuthEngineImpl(
     private lateinit var startForResultAuth: ActivityResultLauncher<Intent?>
     private lateinit var startForResultLogout: ActivityResultLauncher<Intent?>
     override var onWakeThreads: ()->Unit = {}
+
+    private var loginCancelled: Boolean = false
+    override val loginWasCancelled: Boolean
+        get() = if(loginCancelled) {
+                loginCancelled = false
+                true
+            } else {
+                false
+            }
 
     init {
         serviceConfig = buildServiceConfig()
@@ -96,23 +106,28 @@ internal class AuthEngineImpl(
 
     private fun processAuthResult(result: ActivityResult) {
         log("processAuthResult $result")
-        result.data?.let { data ->
-            val resp = AuthorizationResponse.fromIntent(data)
-            val ex = AuthorizationException.fromIntent(data)
-            authState.update(resp, ex)
-            persistAuthState()
-            if (resp != null) {
-                // authorization completed
-                performTokenRequest(resp)
-                log("Got auth code: ${resp.authorizationCode}")
-            } else {
-                log("Auth failed: $ex")
-                // user cancelled login flow, wake threads so they can return error
+        if(result.resultCode == Activity.RESULT_CANCELED) {
+            loginCancelled = true
+            onWakeThreads()
+        } else {
+            result.data?.let { data ->
+                val resp = AuthorizationResponse.fromIntent(data)
+                val ex = AuthorizationException.fromIntent(data)
+                authState.update(resp, ex)
+                persistAuthState()
+                if (resp != null) {
+                    // authorization completed
+                    performTokenRequest(resp)
+                    log("Got auth code: ${resp.authorizationCode}")
+                } else {
+                    log("Auth failed: $ex")
+                    // user cancelled login flow, wake threads so they can return error
+                    onWakeThreads()
+                }
+            } ?: run {
+                log("ActivityResult yielded no data (intent) to process")
                 onWakeThreads()
             }
-        } ?: run {
-            log("ActivityResult yielded no data (intent) to process")
-            onWakeThreads()
         }
     }
 
