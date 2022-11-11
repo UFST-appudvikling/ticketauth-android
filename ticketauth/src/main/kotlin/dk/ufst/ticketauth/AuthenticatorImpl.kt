@@ -36,7 +36,7 @@ internal class AuthenticatorImpl(
         }
     }
 
-    override fun prepareCall(): Boolean {
+    override fun prepareCall(): AuthResult {
         if(engine.needsTokenRefresh()) {
             log("Token needs refresh, pausing network call")
             // first caller creates the latch and waits, subsequent callers just wait on the latch
@@ -55,12 +55,16 @@ internal class AuthenticatorImpl(
             }
             // goto sleep until wakeThreads is called
             latch.get()?.await()
+            if(engine.loginWasCancelled) {
+                log("Thread woke up but user cancelled the login flow, return error")
+                return AuthResult.CANCELLED_FLOW
+            }
             if(engine.needsTokenRefresh()) {
                 log("Thread woke up but TicketAuth didn't manage to obtain a new token, return error")
-                return false
+                return AuthResult.ERROR
             }
         }
-        return true
+        return AuthResult.SUCCESS
     }
     override fun clearToken() = engine.clear()
 
