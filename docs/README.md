@@ -45,15 +45,22 @@ This is used for communicating with the library.
 
 ### Prepare network code
 For TicketAuth to do its thing, you need to call a method (prepareCall) before issuing
-your network calls. If it returns false it means that the library failed in obtaining
+your network calls. If it returns AuthResult.ERROR it means that the library failed in obtaining
 a valid access token. 
 
+#### Return values
+
+Following values can be returned by prepareCall:
+
+- AuthResult.SUCCESS, we got a token, all good
+- AuthResult.CANCELLED_FLOW, user cancelled the login flow (by closing the browser window)
+- AuthResult.ERROR, Something went wrong, likely network error.
+
 ```
-if(authenticator.prepareCall()) {
-    // perform network call
-} else {
-    // login failed or was cancelled by the user
-    // deal with this at the application level
+when(authenticator.prepareCall()) {
+    AuthResult.CANCELLED_FLOW -> TODO() // return status so domain layer can decide what to do
+    AuthResult.ERROR -> TODO() // // return status so domain layer can decide what to do
+    AuthResult.SUCCESS -> TODO() // perform network call and return data or error
 }
 ```
 
@@ -70,7 +77,7 @@ if(!TicketAuth.isAuthorized) {
 }
 ```
 
-__You can call this AND prepareCall at the same, 
+__You can call this AND prepareCall at the same time, 
 library will only ever show one login or do one token refresh.__
 
 ### Logout
