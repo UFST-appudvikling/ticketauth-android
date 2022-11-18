@@ -13,9 +13,11 @@ internal class AuthenticatorImpl(
     }
 
     private var latch: AtomicReference<CountDownLatch> = AtomicReference()
+    private var loginCallback: LoginCallback? = null
 
-    override fun login() {
+    override fun login(callback: LoginCallback?) {
         if(latch.compareAndSet(null, CountDownLatch(1))) {
+            loginCallback = callback
             engine.clear()
             engine.runOnUiThread {
                 engine.launchAuthIntent()
@@ -70,5 +72,13 @@ internal class AuthenticatorImpl(
 
     private fun wakeThreads() {
         latch.getAndSet(null).countDown()
+        if(loginCallback != null) {
+            when(true) {
+                engine.loginWasCancelled -> engine.runOnUiThread { loginCallback!!(AuthResult.CANCELLED_FLOW) }
+                engine.needsTokenRefresh() -> engine.runOnUiThread { loginCallback!!(AuthResult.ERROR) }
+                else -> engine.runOnUiThread { loginCallback!!(AuthResult.SUCCESS) }
+            }
+            loginCallback = null
+        }
     }
 }
