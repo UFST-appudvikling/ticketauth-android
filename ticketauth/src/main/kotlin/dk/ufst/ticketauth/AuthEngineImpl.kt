@@ -32,13 +32,13 @@ internal class AuthEngineImpl(
     private val dcsBaseUrl: String,
     private val clientId: String,
     private val scopes: String,
+    private val redirectUri: String
 ): AuthEngine {
     private var authService: AuthorizationService = AuthorizationService(context)
     private var serviceConfig : AuthorizationServiceConfiguration
     var authState: AuthState = AuthState()
-    private val redirectUri: String = "${context.packageName}.ticketauth://callback?"
 
-    private val roles = mutableListOf<String>()
+    override val roles = mutableListOf<String>()
 
     private val refreshLock = ReentrantLock()
     private val refreshCondition: Condition = refreshLock.newCondition()
@@ -55,6 +55,13 @@ internal class AuthEngineImpl(
             } else {
                 false
             }
+
+    override val accessToken: String?
+        get() {
+            return authState.accessToken
+        }
+
+    override fun needsTokenRefresh(): Boolean = authState.needsTokenRefresh
 
     init {
         serviceConfig = buildServiceConfig()
@@ -144,8 +151,6 @@ internal class AuthEngineImpl(
             log("Cannot call logout endpoint because we have no idToken")
         }
     }
-
-    override fun needsTokenRefresh(): Boolean = authState.needsTokenRefresh
 
     private fun processLogoutResult(result: ActivityResult) {
         log("processLogoutResult $result")

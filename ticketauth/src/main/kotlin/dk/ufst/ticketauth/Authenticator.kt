@@ -7,4 +7,6 @@ interface Authenticator {
     fun logout()
     fun prepareCall(): AuthResult
     fun clearToken()
+    val accessToken: String?
+    val roles: List<String>
 }

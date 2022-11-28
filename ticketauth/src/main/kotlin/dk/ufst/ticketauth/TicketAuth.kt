@@ -20,7 +20,8 @@ object TicketAuth {
             context = config.context,
             dcsBaseUrl = config.dcsBaseUrl,
             clientId = config.clientId,
-            scopes = config.scopes
+            scopes = config.scopes,
+            redirectUri = config.redirectUri
         )
         authenticator = AuthenticatorImpl(engine!!)
     }

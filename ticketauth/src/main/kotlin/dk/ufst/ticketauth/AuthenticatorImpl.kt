@@ -10,6 +10,7 @@ internal class AuthenticatorImpl(
         engine.onWakeThreads = {
             wakeThreads()
         }
+
     }
 
     private var latch: AtomicReference<CountDownLatch> = AtomicReference()
@@ -68,17 +69,21 @@ internal class AuthenticatorImpl(
         }
         return AuthResult.SUCCESS
     }
+
     override fun clearToken() = engine.clear()
+    override val accessToken: String? = engine.accessToken
+    override val roles: List<String> = engine.roles
 
     private fun wakeThreads() {
         latch.getAndSet(null).countDown()
         if(loginCallback != null) {
-            when(true) {
-                engine.loginWasCancelled -> engine.runOnUiThread { loginCallback!!(AuthResult.CANCELLED_FLOW) }
-                engine.needsTokenRefresh() -> engine.runOnUiThread { loginCallback!!(AuthResult.ERROR) }
-                else -> engine.runOnUiThread { loginCallback!!(AuthResult.SUCCESS) }
-            }
+            val localCallback = loginCallback
             loginCallback = null
+            when(true) {
+                engine.loginWasCancelled -> engine.runOnUiThread { localCallback!!(AuthResult.CANCELLED_FLOW) }
+                engine.needsTokenRefresh() -> engine.runOnUiThread { localCallback!!(AuthResult.ERROR) }
+                else -> engine.runOnUiThread { localCallback!!(AuthResult.SUCCESS) }
+            }
         }
     }
 }
