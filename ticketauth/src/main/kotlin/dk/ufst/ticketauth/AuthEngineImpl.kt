@@ -32,7 +32,8 @@ internal class AuthEngineImpl(
     private val dcsBaseUrl: String,
     private val clientId: String,
     private val scopes: String,
-    private val redirectUri: String
+    private val redirectUri: String,
+    private val onNewAccessToken: OnNewAccessTokenCallback,
 ): AuthEngine {
     private var authService: AuthorizationService = AuthorizationService(context)
     private var serviceConfig : AuthorizationServiceConfiguration
@@ -57,9 +58,8 @@ internal class AuthEngineImpl(
             }
 
     override val accessToken: String?
-        get() {
-            return authState.accessToken
-        }
+        get() = authState.accessToken
+
 
     override fun needsTokenRefresh(): Boolean = authState.needsTokenRefresh
 
@@ -178,6 +178,7 @@ internal class AuthEngineImpl(
                 // exchange succeeded
                 log("Got access token: ${resp.accessToken}")
                 decodeJWT()
+                onAccessToken()
                 onWakeThreads()
             } else {
                 log("Token exchange failed: $ex")
@@ -201,6 +202,7 @@ internal class AuthEngineImpl(
                 if (resp != null) {
                     success = true
                     decodeJWT()
+                    onAccessToken()
                 } else {
                     log("Token refresh exception $ex")
                 }
@@ -223,6 +225,10 @@ internal class AuthEngineImpl(
 
     private fun persistAuthState() {
         sharedPrefs.edit().putString("authState", authState.jsonSerializeString()).apply()
+    }
+
+    private fun onAccessToken() {
+        onNewAccessToken?.invoke(authState.accessToken!!)
     }
 
     override fun runOnUiThread(block: ()->Unit) {

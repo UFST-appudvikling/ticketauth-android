@@ -71,7 +71,9 @@ internal class AuthenticatorImpl(
     }
 
     override fun clearToken() = engine.clear()
-    override val accessToken: String? = engine.accessToken
+    override val accessToken: String?
+        get() = engine.accessToken
+
     override val roles: List<String> = engine.roles
 
     private fun wakeThreads() {

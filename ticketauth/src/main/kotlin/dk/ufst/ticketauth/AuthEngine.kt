@@ -1,5 +1,7 @@
 package dk.ufst.ticketauth
 
+typealias OnNewAccessTokenCallback = ((String)->Unit)?
+
 internal interface AuthEngine {
     fun launchAuthIntent()
     fun launchLogoutIntent()
