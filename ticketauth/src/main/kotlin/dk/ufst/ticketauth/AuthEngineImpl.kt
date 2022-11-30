@@ -57,6 +57,16 @@ internal class AuthEngineImpl(
                 false
             }
 
+    private var logoutCancelled: Boolean = false
+    override val logoutWasCancelled: Boolean
+        get() = if(logoutCancelled) {
+            logoutCancelled = false
+            true
+        } else {
+            false
+        }
+
+
     override val accessToken: String?
         get() = authState.accessToken
 
@@ -154,6 +164,11 @@ internal class AuthEngineImpl(
 
     private fun processLogoutResult(result: ActivityResult) {
         log("processLogoutResult $result")
+        if(result.resultCode == Activity.RESULT_CANCELED) {
+            logoutCancelled = true
+            onWakeThreads()
+            return
+        }
         result.data?.let { data ->
             val resp = EndSessionResponse.fromIntent(data)
             val ex = AuthorizationException.fromIntent(data)
