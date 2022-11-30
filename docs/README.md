@@ -34,6 +34,25 @@ Auth state is automatically persisted (which is why setup takes a SharedPreferen
 The installActivityProvider method uses the provided activity to register "startActivityForResult" handlers,
 which the library use to communicate with the system browser.
 
+### Optional parameters
+
+#### redirectUri 
+Library generates a default redirectUri which is packagename + ".ticketauth" if you for one
+reason or another needs to manually specify a redirectUri, call this function:
+
+```
+    .redirectUri("https://domain.tld/callback")
+```
+
+#### onNewAccessToken
+If you need to get a callback whenever the library obtains a new access token, either through
+token refresh or relogin, call this function:
+
+```
+    .onNewAccessToken { token ->
+        // do something with token
+    }
+```
 
 ## Authenticator object
 When TicketAuth is configured you can get a Authenticator object like this:
@@ -74,6 +93,27 @@ but if you want to login without calling an endpoint you can use:
 ```
 if(!TicketAuth.isAuthorized) {
     TicketAuth.authenticator().login()
+}
+```
+
+#### Optional callback
+It is possible to pass a callback function to login inorder to notified whenever the login is
+complete. This is useful for detecting if the user cancelled the webflow (by closing the browser)
+etc.
+
+```
+TicketAuth.authenticator().login { result ->
+    when(result) {
+        AuthResult.SUCCESS -> {
+            // do something
+        }
+        AuthResult.CANCELLED_FLOW -> {
+            // do something
+        }
+        AuthResult.ERROR -> {
+            // do something
+        }
+    }
 }
 ```
 
