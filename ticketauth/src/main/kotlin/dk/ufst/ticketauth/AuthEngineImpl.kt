@@ -44,8 +44,8 @@ internal class AuthEngineImpl(
     private val refreshLock = ReentrantLock()
     private val refreshCondition: Condition = refreshLock.newCondition()
     var activityProvider: ActivityProvider = null
-    private lateinit var startForResultAuth: ActivityResultLauncher<Intent?>
-    private lateinit var startForResultLogout: ActivityResultLauncher<Intent?>
+    private var startForResultAuth: ActivityResultLauncher<Intent?>? = null
+    private var startForResultLogout: ActivityResultLauncher<Intent?>? = null
     override var onWakeThreads: ()->Unit = {}
 
     private var loginCancelled: Boolean = false
@@ -118,7 +118,7 @@ internal class AuthEngineImpl(
 
         val authIntent: Intent = authService.getAuthorizationRequestIntent(authRequest)
 
-        startForResultAuth.launch(authIntent)
+        startForResultAuth!!.launch(authIntent)
     }
 
     private fun processAuthResult(result: ActivityResult) {
@@ -156,7 +156,7 @@ internal class AuthEngineImpl(
                 .setPostLogoutRedirectUri(Uri.parse(redirectUri))
                 .build()
             val endSessionIntent = authService.getEndSessionRequestIntent(endSessionRequest)
-            startForResultLogout.launch(endSessionIntent)
+            startForResultLogout!!.launch(endSessionIntent)
         } ?: run {
             log("Cannot call logout endpoint because we have no idToken")
         }
