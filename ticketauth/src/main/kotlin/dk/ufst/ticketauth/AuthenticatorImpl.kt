@@ -14,9 +14,10 @@ internal class AuthenticatorImpl(
     }
 
     private var latch: AtomicReference<CountDownLatch> = AtomicReference()
-    private var loginCallback: LoginCallback? = null
+    private var loginCallback: AuthCallback? = null
+    private var logoutCallback: AuthCallback? = null
 
-    override fun login(callback: LoginCallback?) {
+    override fun login(callback: AuthCallback?) {
         if(latch.compareAndSet(null, CountDownLatch(1))) {
             loginCallback = callback
             engine.clear()
@@ -28,8 +29,9 @@ internal class AuthenticatorImpl(
         }
     }
 
-    override fun logout() {
+    override fun logout(callback: AuthCallback?) {
         if(latch.compareAndSet(null, CountDownLatch(1))) {
+            logoutCallback = callback
             engine.runOnUiThread {
                 engine.launchLogoutIntent()
                 engine.clear()
@@ -84,6 +86,14 @@ internal class AuthenticatorImpl(
             when(true) {
                 engine.loginWasCancelled -> engine.runOnUiThread { localCallback!!(AuthResult.CANCELLED_FLOW) }
                 engine.needsTokenRefresh() -> engine.runOnUiThread { localCallback!!(AuthResult.ERROR) }
+                else -> engine.runOnUiThread { localCallback!!(AuthResult.SUCCESS) }
+            }
+        }
+        if(logoutCallback != null) {
+            val localCallback = logoutCallback
+            logoutCallback = null
+            when(true) {
+                engine.logoutWasCancelled -> engine.runOnUiThread { localCallback!!(AuthResult.CANCELLED_FLOW) }
                 else -> engine.runOnUiThread { localCallback!!(AuthResult.SUCCESS) }
             }
         }

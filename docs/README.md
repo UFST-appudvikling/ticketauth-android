@@ -126,6 +126,25 @@ If you want to run the oauth logout flow call:
 authenticator.logout()
 ```
 
+#### Get notified when logout flow is complete
+It is possible to get called back whenever the logout flow is completed.
+
+```
+TicketAuth.authenticator().logout { result ->
+    when(result) {
+        AuthResult.SUCCESS -> {
+            // do something
+        }
+        AuthResult.CANCELLED_FLOW -> {
+            // do something
+        }
+        AuthResult.ERROR -> {
+            // do something
+        }
+    }
+}
+```
+
 ### Clear token manually
 You might need to clear the current auth state (and all tokens) manually on the response
 to some event. To do this call:

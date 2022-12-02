@@ -1,10 +1,10 @@
 package dk.ufst.ticketauth
 
-typealias LoginCallback = (AuthResult)->Unit
+typealias AuthCallback = (AuthResult)->Unit
 
 interface Authenticator {
-    fun login(callback: LoginCallback? = null)
-    fun logout()
+    fun login(callback: AuthCallback? = null)
+    fun logout(callback: AuthCallback? = null)
     fun prepareCall(): AuthResult
     fun clearToken()
     val accessToken: String?

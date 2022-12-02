@@ -11,6 +11,7 @@ internal interface AuthEngine {
     var onWakeThreads: ()->Unit
     fun runOnUiThread(block: ()->Unit)
     val loginWasCancelled: Boolean
+    val logoutWasCancelled: Boolean
     val roles: List<String>
     val accessToken: String?
 }
