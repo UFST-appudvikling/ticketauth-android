@@ -1,5 +1,7 @@
 package dk.ufst.ticketauth
 
+typealias OnNewAccessTokenCallback = ((String)->Unit)?
+
 internal interface AuthEngine {
     fun launchAuthIntent()
     fun launchLogoutIntent()
@@ -8,4 +10,8 @@ internal interface AuthEngine {
     fun clear()
     var onWakeThreads: ()->Unit
     fun runOnUiThread(block: ()->Unit)
+    val loginWasCancelled: Boolean
+    val logoutWasCancelled: Boolean
+    val roles: List<String>
+    val accessToken: String?
 }

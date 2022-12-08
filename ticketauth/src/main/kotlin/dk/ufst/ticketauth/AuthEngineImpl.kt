@@ -1,5 +1,6 @@
 package dk.ufst.ticketauth
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -31,20 +32,46 @@ internal class AuthEngineImpl(
     private val dcsBaseUrl: String,
     private val clientId: String,
     private val scopes: String,
+    private val redirectUri: String,
+    private val onNewAccessToken: OnNewAccessTokenCallback,
 ): AuthEngine {
     private var authService: AuthorizationService = AuthorizationService(context)
     private var serviceConfig : AuthorizationServiceConfiguration
     var authState: AuthState = AuthState()
-    private val redirectUri: String = "${context.packageName}.ticketauth://callback?"
 
-    private val roles = mutableListOf<String>()
+    override val roles = mutableListOf<String>()
 
     private val refreshLock = ReentrantLock()
     private val refreshCondition: Condition = refreshLock.newCondition()
     var activityProvider: ActivityProvider = null
-    private lateinit var startForResultAuth: ActivityResultLauncher<Intent?>
-    private lateinit var startForResultLogout: ActivityResultLauncher<Intent?>
+    private var startForResultAuth: ActivityResultLauncher<Intent?>? = null
+    private var startForResultLogout: ActivityResultLauncher<Intent?>? = null
     override var onWakeThreads: ()->Unit = {}
+
+    private var loginCancelled: Boolean = false
+    override val loginWasCancelled: Boolean
+        get() = if(loginCancelled) {
+                loginCancelled = false
+                true
+            } else {
+                false
+            }
+
+    private var logoutCancelled: Boolean = false
+    override val logoutWasCancelled: Boolean
+        get() = if(logoutCancelled) {
+            logoutCancelled = false
+            true
+        } else {
+            false
+        }
+
+
+    override val accessToken: String?
+        get() = authState.accessToken
+
+
+    override fun needsTokenRefresh(): Boolean = authState.needsTokenRefresh
 
     init {
         serviceConfig = buildServiceConfig()
@@ -91,28 +118,33 @@ internal class AuthEngineImpl(
 
         val authIntent: Intent = authService.getAuthorizationRequestIntent(authRequest)
 
-        startForResultAuth.launch(authIntent)
+        startForResultAuth!!.launch(authIntent)
     }
 
     private fun processAuthResult(result: ActivityResult) {
         log("processAuthResult $result")
-        result.data?.let { data ->
-            val resp = AuthorizationResponse.fromIntent(data)
-            val ex = AuthorizationException.fromIntent(data)
-            authState.update(resp, ex)
-            persistAuthState()
-            if (resp != null) {
-                // authorization completed
-                performTokenRequest(resp)
-                log("Got auth code: ${resp.authorizationCode}")
-            } else {
-                log("Auth failed: $ex")
-                // user cancelled login flow, wake threads so they can return error
+        if(result.resultCode == Activity.RESULT_CANCELED) {
+            loginCancelled = true
+            onWakeThreads()
+        } else {
+            result.data?.let { data ->
+                val resp = AuthorizationResponse.fromIntent(data)
+                val ex = AuthorizationException.fromIntent(data)
+                authState.update(resp, ex)
+                persistAuthState()
+                if (resp != null) {
+                    // authorization completed
+                    performTokenRequest(resp)
+                    log("Got auth code: ${resp.authorizationCode}")
+                } else {
+                    log("Auth failed: $ex")
+                    // user cancelled login flow, wake threads so they can return error
+                    onWakeThreads()
+                }
+            } ?: run {
+                log("ActivityResult yielded no data (intent) to process")
                 onWakeThreads()
             }
-        } ?: run {
-            log("ActivityResult yielded no data (intent) to process")
-            onWakeThreads()
         }
     }
 
@@ -124,16 +156,19 @@ internal class AuthEngineImpl(
                 .setPostLogoutRedirectUri(Uri.parse(redirectUri))
                 .build()
             val endSessionIntent = authService.getEndSessionRequestIntent(endSessionRequest)
-            startForResultLogout.launch(endSessionIntent)
+            startForResultLogout!!.launch(endSessionIntent)
         } ?: run {
             log("Cannot call logout endpoint because we have no idToken")
         }
     }
 
-    override fun needsTokenRefresh(): Boolean = authState.needsTokenRefresh
-
     private fun processLogoutResult(result: ActivityResult) {
         log("processLogoutResult $result")
+        if(result.resultCode == Activity.RESULT_CANCELED) {
+            logoutCancelled = true
+            onWakeThreads()
+            return
+        }
         result.data?.let { data ->
             val resp = EndSessionResponse.fromIntent(data)
             val ex = AuthorizationException.fromIntent(data)
@@ -158,6 +193,7 @@ internal class AuthEngineImpl(
                 // exchange succeeded
                 log("Got access token: ${resp.accessToken}")
                 decodeJWT()
+                onAccessToken()
                 onWakeThreads()
             } else {
                 log("Token exchange failed: $ex")
@@ -181,6 +217,7 @@ internal class AuthEngineImpl(
                 if (resp != null) {
                     success = true
                     decodeJWT()
+                    onAccessToken()
                 } else {
                     log("Token refresh exception $ex")
                 }
@@ -203,6 +240,10 @@ internal class AuthEngineImpl(
 
     private fun persistAuthState() {
         sharedPrefs.edit().putString("authState", authState.jsonSerializeString()).apply()
+    }
+
+    private fun onAccessToken() {
+        onNewAccessToken?.invoke(authState.accessToken!!)
     }
 
     override fun runOnUiThread(block: ()->Unit) {

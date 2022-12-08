@@ -34,6 +34,25 @@ Auth state is automatically persisted (which is why setup takes a SharedPreferen
 The installActivityProvider method uses the provided activity to register "startActivityForResult" handlers,
 which the library use to communicate with the system browser.
 
+### Optional parameters
+
+#### redirectUri 
+Library generates a default redirectUri which is packagename + ".ticketauth" if you for one
+reason or another needs to manually specify a redirectUri, call this function:
+
+```
+    .redirectUri("https://domain.tld/callback")
+```
+
+#### onNewAccessToken
+If you need to get a callback whenever the library obtains a new access token, either through
+token refresh or relogin, call this function:
+
+```
+    .onNewAccessToken { token ->
+        // do something with token
+    }
+```
 
 ## Authenticator object
 When TicketAuth is configured you can get a Authenticator object like this:
@@ -45,15 +64,22 @@ This is used for communicating with the library.
 
 ### Prepare network code
 For TicketAuth to do its thing, you need to call a method (prepareCall) before issuing
-your network calls. If it returns false it means that the library failed in obtaining
+your network calls. If it returns AuthResult.ERROR it means that the library failed in obtaining
 a valid access token. 
 
+#### Return values
+
+Following values can be returned by prepareCall:
+
+- AuthResult.SUCCESS, we got a token, all good
+- AuthResult.CANCELLED_FLOW, user cancelled the login flow (by closing the browser window)
+- AuthResult.ERROR, Something went wrong, likely network error.
+
 ```
-if(authenticator.prepareCall()) {
-    // perform network call
-} else {
-    // login failed or was cancelled by the user
-    // deal with this at the application level
+when(authenticator.prepareCall()) {
+    AuthResult.CANCELLED_FLOW -> TODO() // return status so domain layer can decide what to do
+    AuthResult.ERROR -> TODO() // // return status so domain layer can decide what to do
+    AuthResult.SUCCESS -> TODO() // perform network call and return data or error
 }
 ```
 
@@ -70,13 +96,53 @@ if(!TicketAuth.isAuthorized) {
 }
 ```
 
-__You can call this AND prepareCall at the same, 
+#### Optional callback
+It is possible to pass a callback function to login inorder to notified whenever the login is
+complete. This is useful for detecting if the user cancelled the webflow (by closing the browser)
+etc.
+
+```
+TicketAuth.authenticator().login { result ->
+    when(result) {
+        AuthResult.SUCCESS -> {
+            // do something
+        }
+        AuthResult.CANCELLED_FLOW -> {
+            // do something
+        }
+        AuthResult.ERROR -> {
+            // do something
+        }
+    }
+}
+```
+
+__You can call this AND prepareCall at the same time, 
 library will only ever show one login or do one token refresh.__
 
 ### Logout
 If you want to run the oauth logout flow call:
 ```
 authenticator.logout()
+```
+
+#### Get notified when logout flow is complete
+It is possible to get called back whenever the logout flow is completed.
+
+```
+TicketAuth.authenticator().logout { result ->
+    when(result) {
+        AuthResult.SUCCESS -> {
+            // do something
+        }
+        AuthResult.CANCELLED_FLOW -> {
+            // do something
+        }
+        AuthResult.ERROR -> {
+            // do something
+        }
+    }
+}
 ```
 
 ### Clear token manually

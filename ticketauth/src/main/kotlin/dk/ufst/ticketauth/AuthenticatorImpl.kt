@@ -10,12 +10,16 @@ internal class AuthenticatorImpl(
         engine.onWakeThreads = {
             wakeThreads()
         }
+
     }
 
     private var latch: AtomicReference<CountDownLatch> = AtomicReference()
+    private var loginCallback: AuthCallback? = null
+    private var logoutCallback: AuthCallback? = null
 
-    override fun login() {
+    override fun login(callback: AuthCallback?) {
         if(latch.compareAndSet(null, CountDownLatch(1))) {
+            loginCallback = callback
             engine.clear()
             engine.runOnUiThread {
                 engine.launchAuthIntent()
@@ -25,8 +29,9 @@ internal class AuthenticatorImpl(
         }
     }
 
-    override fun logout() {
+    override fun logout(callback: AuthCallback?) {
         if(latch.compareAndSet(null, CountDownLatch(1))) {
+            logoutCallback = callback
             engine.runOnUiThread {
                 engine.launchLogoutIntent()
                 engine.clear()
@@ -36,7 +41,7 @@ internal class AuthenticatorImpl(
         }
     }
 
-    override fun prepareCall(): Boolean {
+    override fun prepareCall(): AuthResult {
         if(engine.needsTokenRefresh()) {
             log("Token needs refresh, pausing network call")
             // first caller creates the latch and waits, subsequent callers just wait on the latch
@@ -55,16 +60,42 @@ internal class AuthenticatorImpl(
             }
             // goto sleep until wakeThreads is called
             latch.get()?.await()
+            if(engine.loginWasCancelled) {
+                log("Thread woke up but user cancelled the login flow, return error")
+                return AuthResult.CANCELLED_FLOW
+            }
             if(engine.needsTokenRefresh()) {
                 log("Thread woke up but TicketAuth didn't manage to obtain a new token, return error")
-                return false
+                return AuthResult.ERROR
             }
         }
-        return true
+        return AuthResult.SUCCESS
     }
+
     override fun clearToken() = engine.clear()
+    override val accessToken: String?
+        get() = engine.accessToken
+
+    override val roles: List<String> = engine.roles
 
     private fun wakeThreads() {
         latch.getAndSet(null).countDown()
+        if(loginCallback != null) {
+            val localCallback = loginCallback
+            loginCallback = null
+            when(true) {
+                engine.loginWasCancelled -> engine.runOnUiThread { localCallback!!(AuthResult.CANCELLED_FLOW) }
+                engine.needsTokenRefresh() -> engine.runOnUiThread { localCallback!!(AuthResult.ERROR) }
+                else -> engine.runOnUiThread { localCallback!!(AuthResult.SUCCESS) }
+            }
+        }
+        if(logoutCallback != null) {
+            val localCallback = logoutCallback
+            logoutCallback = null
+            when(true) {
+                engine.logoutWasCancelled -> engine.runOnUiThread { localCallback!!(AuthResult.CANCELLED_FLOW) }
+                else -> engine.runOnUiThread { localCallback!!(AuthResult.SUCCESS) }
+            }
+        }
     }
 }
