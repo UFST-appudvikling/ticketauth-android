@@ -37,12 +37,31 @@ which the library use to communicate with the system browser.
 ### Optional parameters
 
 #### redirectUri 
-Library generates a default redirectUri which is packagename + ".ticketauth" if you for one
+The library generates a default redirectUri which is packagename + ".ticketauth" if you for one
 reason or another needs to manually specify a redirectUri, call this function:
 
 ```
-    .redirectUri("https://domain.tld/callback")
+    .redirectUri("myapp://callback")
 ```
+
+If you specify a custom redirectUri you need to define a manifest override as well in your app:
+
+```
+<activity
+        android:name="net.openid.appauth.RedirectUriReceiverActivity"
+        android:exported="true"
+        tools:node="replace">
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW"/>
+            <category android:name="android.intent.category.DEFAULT"/>
+            <category android:name="android.intent.category.BROWSABLE"/>
+            <data android:scheme="myapp://"/>
+        </intent-filter>
+</activity>
+```
+
+__If you't don specify a custom redirectUri you don't have to add anything to your apps manifest
+file.__
 
 #### onNewAccessToken
 If you need to get a callback whenever the library obtains a new access token, either through
