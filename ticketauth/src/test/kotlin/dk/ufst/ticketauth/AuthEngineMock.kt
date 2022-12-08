@@ -28,4 +28,13 @@ class AuthEngineMock: AuthEngine {
     override fun runOnUiThread(block: () -> Unit) {
         block()
     }
+
+    override val loginWasCancelled: Boolean
+        get() = false
+    override val logoutWasCancelled: Boolean
+        get() = false
+    override val roles: List<String>
+        get() = emptyList()
+    override val accessToken: String?
+        get() = "TOKEN"
 }
