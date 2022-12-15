@@ -50,7 +50,8 @@ If you specify a custom redirectUri you need to define a manifest override as we
 <activity
         android:name="net.openid.appauth.RedirectUriReceiverActivity"
         android:exported="true"
-        tools:node="replace">
+        tools:node="replace"
+        tools:ignore="MissingClass">
         <intent-filter>
             <action android:name="android.intent.action.VIEW"/>
             <category android:name="android.intent.category.DEFAULT"/>
