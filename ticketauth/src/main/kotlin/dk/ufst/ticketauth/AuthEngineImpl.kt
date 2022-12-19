@@ -154,6 +154,7 @@ internal class AuthEngineImpl(
             val endSessionRequest = EndSessionRequest.Builder(serviceConfig)
                 .setIdTokenHint(it)
                 .setPostLogoutRedirectUri(Uri.parse(redirectUri))
+                .setAdditionalParameters(mapOf("redirect_uri" to redirectUri))
                 .build()
             val endSessionIntent = authService.getEndSessionRequestIntent(endSessionRequest)
             startForResultLogout!!.launch(endSessionIntent)
