@@ -10,8 +10,9 @@ internal interface AuthEngine {
     fun clear()
     var onWakeThreads: ()->Unit
     fun runOnUiThread(block: ()->Unit)
-    val loginWasCancelled: Boolean
-    val logoutWasCancelled: Boolean
+
+    val jobs: MutableMap<Int, AuthJob>
+
     val roles: List<String>
     val accessToken: String?
 }
