@@ -53,10 +53,6 @@ internal class AuthEngineImpl(
     override val accessToken: String?
         get() = authState.accessToken
     
-    //private var jobRunningAuth: Int = 0
-    //private var jobRunningLogout: Int = 0
-
-
     override fun needsTokenRefresh(): Boolean = authState.needsTokenRefresh
 
     init {
