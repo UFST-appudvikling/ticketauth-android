@@ -10,6 +10,7 @@ internal interface AuthEngine {
     fun clear()
     var onWakeThreads: ()->Unit
     fun runOnUiThread(block: ()->Unit)
+    fun destroy()
 
     val jobs: MutableMap<Int, AuthJob>
 

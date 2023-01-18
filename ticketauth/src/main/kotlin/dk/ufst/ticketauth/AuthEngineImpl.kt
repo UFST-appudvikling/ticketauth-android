@@ -284,6 +284,10 @@ internal class AuthEngineImpl(
         }
     }
 
+    override fun destroy() {
+        authService.dispose()
+    }
+
     companion object {
         private const val AUTH_PATH: String = "/protocol/openid-connect/auth"
         private const val TOKEN_PATH: String = "/protocol/openid-connect/token"
