@@ -205,11 +205,9 @@ internal class AuthEngineImpl(
     private fun wakeThreads(result: AuthResult) {
         for(job in jobs.values) {
             job.result = result
-            job.callback?.let {
-                val localCallback = it
-                runOnUiThread { localCallback(result) }
-            }
+            job.callback?.invoke(result)
         }
+        jobs.entries.removeIf { it.value.noReturn }
         onWakeThreads()
     }
 

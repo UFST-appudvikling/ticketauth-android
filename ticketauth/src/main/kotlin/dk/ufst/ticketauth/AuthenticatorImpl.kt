@@ -19,7 +19,7 @@ internal class AuthenticatorImpl(
 
     override fun login(callback: AuthCallback?) {
         if(latch.compareAndSet(null, CountDownLatch(1))) {
-            val job = spawnJob()
+            val job = spawnJob(noReturn = true)
             job.callback = callback
             engine.clear()
             engine.runOnUiThread {
@@ -32,7 +32,7 @@ internal class AuthenticatorImpl(
 
     override fun logout(callback: AuthCallback?) {
         if(latch.compareAndSet(null, CountDownLatch(1))) {
-            val job = spawnJob()
+            val job = spawnJob(noReturn = true)
             job.callback = callback
             engine.runOnUiThread {
                 engine.launchLogoutIntent()
@@ -44,7 +44,7 @@ internal class AuthenticatorImpl(
     }
 
     override fun prepareCall(): AuthResult {
-        val job = spawnJob()
+        val job = spawnJob(noReturn = false)
         var result = AuthResult.SUCCESS
         if(engine.needsTokenRefresh()) {
             log("Token needs refresh, pausing network call")
@@ -74,8 +74,8 @@ internal class AuthenticatorImpl(
         return result
     }
 
-    private fun spawnJob(): AuthJob {
-        val job = AuthJob(id = nextJobId)
+    private fun spawnJob(noReturn: Boolean = false): AuthJob {
+        val job = AuthJob(id = nextJobId, noReturn = noReturn)
         engine.jobs[nextJobId] = job
         nextJobId++
         return job
