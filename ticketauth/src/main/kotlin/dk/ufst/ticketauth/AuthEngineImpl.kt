@@ -47,30 +47,12 @@ internal class AuthEngineImpl(
     private var startForResultAuth: ActivityResultLauncher<Intent?>? = null
     private var startForResultLogout: ActivityResultLauncher<Intent?>? = null
     override var onWakeThreads: ()->Unit = {}
-
-    private var loginCancelled: Boolean = false
-    override val loginWasCancelled: Boolean
-        get() = if(loginCancelled) {
-                loginCancelled = false
-                true
-            } else {
-                false
-            }
-
-    private var logoutCancelled: Boolean = false
-    override val logoutWasCancelled: Boolean
-        get() = if(logoutCancelled) {
-            logoutCancelled = false
-            true
-        } else {
-            false
-        }
-
+    
+    override val jobs: MutableMap<Int, AuthJob> = mutableMapOf()
 
     override val accessToken: String?
         get() = authState.accessToken
-
-
+    
     override fun needsTokenRefresh(): Boolean = authState.needsTokenRefresh
 
     init {
@@ -117,15 +99,41 @@ internal class AuthEngineImpl(
             .build()
 
         val authIntent: Intent = authService.getAuthorizationRequestIntent(authRequest)
-
-        startForResultAuth!!.launch(authIntent)
+        
+        try {
+            startForResultAuth!!.launch(authIntent)
+        } catch (t : Throwable) {
+            log("Cannot launch auth intent due to exception: ${t.message}")
+            wakeThreads(AuthResult.ERROR)
+        }
     }
+
+    override fun launchLogoutIntent() {
+        log("Launching logout intent")
+        authState.idToken?.let {
+            val endSessionRequest = EndSessionRequest.Builder(serviceConfig)
+                .setIdTokenHint(it)
+                .setPostLogoutRedirectUri(Uri.parse(redirectUri))
+                .build()
+            val endSessionIntent = authService.getEndSessionRequestIntent(endSessionRequest)
+            try {
+                startForResultLogout!!.launch(endSessionIntent)
+            } catch (t : Throwable) {
+                log("Cannot launch logout intent due to exception: ${t.message}")
+                wakeThreads(AuthResult.ERROR)
+            }
+        } ?: run {
+            log("Cannot launch logout intent because we have no idToken")
+            wakeThreads(AuthResult.ERROR)
+        }
+    }
+
 
     private fun processAuthResult(result: ActivityResult) {
         log("processAuthResult $result")
         if(result.resultCode == Activity.RESULT_CANCELED) {
-            loginCancelled = true
-            onWakeThreads()
+            log("Auth flow was cancelled by user")
+            wakeThreads(AuthResult.CANCELLED_FLOW)
         } else {
             result.data?.let { data ->
                 val resp = AuthorizationResponse.fromIntent(data)
@@ -138,35 +146,20 @@ internal class AuthEngineImpl(
                     log("Got auth code: ${resp.authorizationCode}")
                 } else {
                     log("Auth failed: $ex")
-                    // user cancelled login flow, wake threads so they can return error
-                    onWakeThreads()
+                    // user cancelled login flow (in flow cancel option), wake threads so they can return error
+                    wakeThreads(AuthResult.ERROR)
                 }
             } ?: run {
                 log("ActivityResult yielded no data (intent) to process")
-                onWakeThreads()
+                wakeThreads(AuthResult.ERROR)
             }
         }
     }
-
-    override fun launchLogoutIntent() {
-        log("Launching logout intent")
-        authState.idToken?.let {
-            val endSessionRequest = EndSessionRequest.Builder(serviceConfig)
-                .setIdTokenHint(it)
-                .setPostLogoutRedirectUri(Uri.parse(redirectUri))
-                .build()
-            val endSessionIntent = authService.getEndSessionRequestIntent(endSessionRequest)
-            startForResultLogout!!.launch(endSessionIntent)
-        } ?: run {
-            log("Cannot call logout endpoint because we have no idToken")
-        }
-    }
-
+    
     private fun processLogoutResult(result: ActivityResult) {
         log("processLogoutResult $result")
         if(result.resultCode == Activity.RESULT_CANCELED) {
-            logoutCancelled = true
-            onWakeThreads()
+            wakeThreads(AuthResult.CANCELLED_FLOW)
             return
         }
         result.data?.let { data ->
@@ -175,13 +168,16 @@ internal class AuthEngineImpl(
             if (resp != null) {
                 log("Completed logout")
                 clear()
+                wakeThreads(AuthResult.SUCCESS)
             } else {
+                wakeThreads(AuthResult.ERROR)
                 log("Logout failed: $ex")
             }
         } ?: run {
+            wakeThreads(AuthResult.ERROR)
             log("ActivityResult yielded no data (intent) to process")
         }
-        onWakeThreads()
+
     }
 
     private fun performTokenRequest(authResp: AuthorizationResponse) {
@@ -194,11 +190,21 @@ internal class AuthEngineImpl(
                 log("Got access token: ${resp.accessToken}")
                 decodeJWT()
                 onAccessToken()
-                onWakeThreads()
+                wakeThreads(AuthResult.SUCCESS)
             } else {
                 log("Token exchange failed: $ex")
+                wakeThreads(AuthResult.ERROR)
             }
         }
+    }
+
+    private fun wakeThreads(result: AuthResult) {
+        for(job in jobs.values) {
+            job.result = result
+            job.callback?.invoke(result)
+        }
+        jobs.entries.removeIf { it.value.noReturn }
+        onWakeThreads()
     }
 
     /**

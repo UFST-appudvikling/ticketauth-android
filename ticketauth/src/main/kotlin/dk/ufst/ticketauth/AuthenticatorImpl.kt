@@ -6,6 +6,8 @@ import java.util.concurrent.atomic.AtomicReference
 internal class AuthenticatorImpl(
     private var engine: AuthEngine
 ): Authenticator {
+    private var nextJobId: Int = 1
+
     init {
         engine.onWakeThreads = {
             wakeThreads()
@@ -14,12 +16,11 @@ internal class AuthenticatorImpl(
     }
 
     private var latch: AtomicReference<CountDownLatch> = AtomicReference()
-    private var loginCallback: AuthCallback? = null
-    private var logoutCallback: AuthCallback? = null
 
     override fun login(callback: AuthCallback?) {
         if(latch.compareAndSet(null, CountDownLatch(1))) {
-            loginCallback = callback
+            val job = spawnJob(noReturn = true)
+            job.callback = callback
             engine.clear()
             engine.runOnUiThread {
                 engine.launchAuthIntent()
@@ -31,7 +32,8 @@ internal class AuthenticatorImpl(
 
     override fun logout(callback: AuthCallback?) {
         if(latch.compareAndSet(null, CountDownLatch(1))) {
-            logoutCallback = callback
+            val job = spawnJob(noReturn = true)
+            job.callback = callback
             engine.runOnUiThread {
                 engine.launchLogoutIntent()
                 engine.clear()
@@ -42,6 +44,8 @@ internal class AuthenticatorImpl(
     }
 
     override fun prepareCall(): AuthResult {
+        val job = spawnJob(noReturn = false)
+        var result = AuthResult.SUCCESS
         if(engine.needsTokenRefresh()) {
             log("Token needs refresh, pausing network call")
             // first caller creates the latch and waits, subsequent callers just wait on the latch
@@ -60,16 +64,25 @@ internal class AuthenticatorImpl(
             }
             // goto sleep until wakeThreads is called
             latch.get()?.await()
-            if(engine.loginWasCancelled) {
-                log("Thread woke up but user cancelled the login flow, return error")
-                return AuthResult.CANCELLED_FLOW
-            }
-            if(engine.needsTokenRefresh()) {
-                log("Thread woke up but TicketAuth didn't manage to obtain a new token, return error")
-                return AuthResult.ERROR
+
+            job.result?.let {
+                log("Thread woke up but found pending AuthResult: ${it.name}, return result")
+                result = it
             }
         }
-        return AuthResult.SUCCESS
+        killJob(job)
+        return result
+    }
+
+    private fun spawnJob(noReturn: Boolean = false): AuthJob {
+        val job = AuthJob(id = nextJobId, noReturn = noReturn)
+        engine.jobs[nextJobId] = job
+        nextJobId++
+        return job
+    }
+
+    private fun killJob(job: AuthJob) {
+        engine.jobs.remove(job.id)
     }
 
     override fun clearToken() = engine.clear()
@@ -80,22 +93,5 @@ internal class AuthenticatorImpl(
 
     private fun wakeThreads() {
         latch.getAndSet(null).countDown()
-        if(loginCallback != null) {
-            val localCallback = loginCallback
-            loginCallback = null
-            when(true) {
-                engine.loginWasCancelled -> engine.runOnUiThread { localCallback!!(AuthResult.CANCELLED_FLOW) }
-                engine.needsTokenRefresh() -> engine.runOnUiThread { localCallback!!(AuthResult.ERROR) }
-                else -> engine.runOnUiThread { localCallback!!(AuthResult.SUCCESS) }
-            }
-        }
-        if(logoutCallback != null) {
-            val localCallback = logoutCallback
-            logoutCallback = null
-            when(true) {
-                engine.logoutWasCancelled -> engine.runOnUiThread { localCallback!!(AuthResult.CANCELLED_FLOW) }
-                else -> engine.runOnUiThread { localCallback!!(AuthResult.SUCCESS) }
-            }
-        }
     }
 }
