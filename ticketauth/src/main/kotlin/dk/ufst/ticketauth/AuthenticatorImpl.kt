@@ -92,6 +92,6 @@ internal class AuthenticatorImpl(
     override val roles: List<String> = engine.roles
 
     private fun wakeThreads() {
-        latch.getAndSet(null).countDown()
+        latch.getAndSet(null)?.countDown()
     }
 }

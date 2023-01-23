@@ -15,6 +15,7 @@ object TicketAuth {
 
     fun setup(config: TicketAuthConfig) {
         debug = config.debug
+        engine?.destroy()
         engine = AuthEngineImpl(
             sharedPrefs = config.sharedPrefs,
             context = config.context,
