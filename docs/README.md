@@ -74,6 +74,16 @@ token refresh or relogin, call this function:
     }
 ```
 
+#### onAuthResult
+Use this if you need a callback each time an AuthResult is obtained.
+This is handy if you want to centralize error handling etc
+
+```
+   .onAuthResult { result ->
+        // do something with result
+    }
+```
+
 ## Authenticator object
 When TicketAuth is configured you can get a Authenticator object like this:
 
