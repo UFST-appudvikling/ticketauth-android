@@ -34,6 +34,7 @@ internal class AuthEngineImpl(
     private val scopes: String,
     private val redirectUri: String,
     private val onNewAccessToken: OnNewAccessTokenCallback,
+    private val onAuthResultCallback: OnAuthResultCallback,
 ): AuthEngine {
     private var authService: AuthorizationService = AuthorizationService(context)
     private var serviceConfig : AuthorizationServiceConfiguration
@@ -199,12 +200,23 @@ internal class AuthEngineImpl(
     }
 
     private fun wakeThreads(result: AuthResult) {
+        // notify waiting jobs and callbacks
         for(job in jobs.values) {
             job.result = result
-            job.callback?.invoke(result)
+            job.callback?.let {
+                runOnUiThread {
+                    it.invoke(result)
+                }
+            }
         }
         jobs.entries.removeIf { it.value.noReturn }
         onWakeThreads()
+        // call auth result callback if registered
+        onAuthResultCallback?.let { callback ->
+            runOnUiThread {
+                callback.invoke(result)
+            }
+        }
     }
 
     /**
