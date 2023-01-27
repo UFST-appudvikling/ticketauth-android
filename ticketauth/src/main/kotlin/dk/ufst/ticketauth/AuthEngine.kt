@@ -1,5 +1,7 @@
 package dk.ufst.ticketauth
 
+import dk.ufst.ticketauth.authcode.AuthJob
+
 typealias OnNewAccessTokenCallback = ((String)->Unit)?
 typealias OnAuthResultCallback = ((AuthResult)->Unit)?
 

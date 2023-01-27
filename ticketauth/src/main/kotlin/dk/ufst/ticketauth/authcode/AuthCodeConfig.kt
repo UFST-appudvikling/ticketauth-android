@@ -1,11 +1,13 @@
 @file:Suppress("unused")
 
-package dk.ufst.ticketauth
+package dk.ufst.ticketauth.authcode
 
 import android.content.Context
 import android.content.SharedPreferences
+import dk.ufst.ticketauth.OnAuthResultCallback
+import dk.ufst.ticketauth.OnNewAccessTokenCallback
 
-class TicketAuthConfig private constructor(
+class AuthCodeConfig private constructor(
     val sharedPrefs: SharedPreferences,
     val context: Context,
     val debug: Boolean,
@@ -36,7 +38,7 @@ class TicketAuthConfig private constructor(
         fun redirectUri(uri: String) = apply { this.redirectUri = uri }
         fun onNewAccessToken(callback: OnNewAccessTokenCallback) = apply { this.onNewAccessTokenCallback = callback}
         fun onAuthResult(callback: OnAuthResultCallback) = apply { this.onAuthResultCallback = callback}
-        fun build() = TicketAuthConfig(
+        fun build() = AuthCodeConfig(
             sharedPrefs ?: throw(RuntimeException("sharedPrefs is required")),
             context ?: throw(RuntimeException("context is required")),
             debug,

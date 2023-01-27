@@ -4,6 +4,10 @@ package dk.ufst.ticketauth
 
 import android.util.Log
 import androidx.activity.ComponentActivity
+import dk.ufst.ticketauth.authcode.AuthCodeConfig
+import dk.ufst.ticketauth.authcode.AuthEngineImpl
+import dk.ufst.ticketauth.authcode.AuthenticatorImpl
+import dk.ufst.ticketauth.automated.AutomatedAuthConfig
 import org.jetbrains.annotations.NonNls
 
 typealias ActivityProvider = (()-> ComponentActivity)?
@@ -13,7 +17,7 @@ object TicketAuth {
     private var debug: Boolean = false
     private var authenticator: Authenticator? = null
 
-    fun setup(config: TicketAuthConfig) {
+    fun setup(config: AuthCodeConfig) {
         debug = config.debug
         engine?.destroy()
         engine = AuthEngineImpl(
@@ -27,6 +31,12 @@ object TicketAuth {
             onAuthResultCallback = config.onAuthResultCallback
         )
         authenticator = AuthenticatorImpl(engine!!)
+    }
+
+    fun setup(config: AutomatedAuthConfig) {
+        debug = true
+        engine?.destroy()
+
     }
 
     fun installActivityProvider(activityProvider: ActivityProvider) {

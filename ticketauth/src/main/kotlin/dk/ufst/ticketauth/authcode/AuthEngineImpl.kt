@@ -1,4 +1,4 @@
-package dk.ufst.ticketauth
+package dk.ufst.ticketauth.authcode
 
 import android.app.Activity
 import android.content.Context
@@ -12,6 +12,12 @@ import android.util.Log
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import dk.ufst.ticketauth.ActivityProvider
+import dk.ufst.ticketauth.AuthEngine
+import dk.ufst.ticketauth.AuthResult
+import dk.ufst.ticketauth.OnAuthResultCallback
+import dk.ufst.ticketauth.OnNewAccessTokenCallback
+import dk.ufst.ticketauth.log
 import net.openid.appauth.AuthState
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
@@ -71,10 +77,10 @@ internal class AuthEngineImpl(
 
     private fun buildServiceConfig() =
         AuthorizationServiceConfiguration(
-            Uri.parse("${dcsBaseUrl}${AUTH_PATH}"),  // authorization endpoint
-            Uri.parse("${dcsBaseUrl}${TOKEN_PATH}"), // token endpoint
+            Uri.parse("${dcsBaseUrl}$AUTH_PATH"),  // authorization endpoint
+            Uri.parse("${dcsBaseUrl}$TOKEN_PATH"), // token endpoint
             null,
-            Uri.parse("${dcsBaseUrl}${LOGOUT_PATH}")
+            Uri.parse("${dcsBaseUrl}$LOGOUT_PATH")
         )
 
     fun installActivityProvider(activityProvider: ActivityProvider) {
