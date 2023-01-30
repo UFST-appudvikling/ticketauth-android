@@ -7,30 +7,18 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import android.util.Base64
-import android.util.Log
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import dk.ufst.ticketauth.ActivityProvider
 import dk.ufst.ticketauth.AuthEngine
-import dk.ufst.ticketauth.authcode.AuthJob
 import dk.ufst.ticketauth.AuthResult
 import dk.ufst.ticketauth.OnNewAccessTokenCallback
+import dk.ufst.ticketauth.authcode.AuthJob
 import dk.ufst.ticketauth.log
-import net.openid.appauth.AuthState
 import net.openid.appauth.AuthorizationException
-import net.openid.appauth.AuthorizationRequest
-import net.openid.appauth.AuthorizationResponse
-import net.openid.appauth.AuthorizationService
 import net.openid.appauth.AuthorizationServiceConfiguration
-import net.openid.appauth.EndSessionRequest
 import net.openid.appauth.EndSessionResponse
-import net.openid.appauth.ResponseTypeValues
-import org.json.JSONObject
-import java.nio.charset.Charset
-import java.util.concurrent.locks.Condition
-import java.util.concurrent.locks.ReentrantLock
 
 internal class AutomatedAuthEngine(
     context: Context,
@@ -51,7 +39,9 @@ internal class AutomatedAuthEngine(
 
     override val accessToken: String?
         get() = null
-    
+    override val isAuthorized: Boolean
+        get() = false
+
     override fun needsTokenRefresh(): Boolean = false
 
     init {
@@ -77,7 +67,7 @@ internal class AutomatedAuthEngine(
             Uri.parse("${baseUrl}${LOGOUT_PATH}")
         )
 
-    fun installActivityProvider(activityProvider: ActivityProvider) {
+    override fun installActivityProvider(activityProvider: ActivityProvider) {
         this.activityProvider = activityProvider
         startForResultAuth =
             activityProvider!!.invoke().registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
@@ -88,6 +78,8 @@ internal class AutomatedAuthEngine(
                 processLogoutResult(result)
             }
     }
+
+    override fun hasActivityProvider() = activityProvider != null
 
     override fun launchAuthIntent() {
         log("Launching auth intent")

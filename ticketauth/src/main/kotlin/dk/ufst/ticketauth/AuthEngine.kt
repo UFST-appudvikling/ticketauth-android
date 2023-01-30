@@ -19,4 +19,7 @@ internal interface AuthEngine {
 
     val roles: List<String>
     val accessToken: String?
+    val isAuthorized: Boolean
+    fun installActivityProvider(activityProvider: ActivityProvider)
+    fun hasActivityProvider(): Boolean
 }

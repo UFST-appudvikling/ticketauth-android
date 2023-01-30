@@ -8,12 +8,13 @@ import dk.ufst.ticketauth.authcode.AuthCodeConfig
 import dk.ufst.ticketauth.authcode.AuthEngineImpl
 import dk.ufst.ticketauth.authcode.AuthenticatorImpl
 import dk.ufst.ticketauth.automated.AutomatedAuthConfig
+import dk.ufst.ticketauth.automated.AutomatedAuthEngine
 import org.jetbrains.annotations.NonNls
 
 typealias ActivityProvider = (()-> ComponentActivity)?
 
 object TicketAuth {
-    private var engine: AuthEngineImpl? = null
+    private var engine: AuthEngine? = null
     private var debug: Boolean = false
     private var authenticator: Authenticator? = null
 
@@ -36,7 +37,15 @@ object TicketAuth {
     fun setup(config: AutomatedAuthConfig) {
         debug = true
         engine?.destroy()
-
+        engine = AutomatedAuthEngine(
+            context = config.context,
+            sharedPrefs = config.sharedPrefs,
+            baseUrl = config.baseUrl,
+            clientId = config.clientId,
+            apiKey = config.apiKey,
+            provider = config.provider,
+            onNewAccessToken = config.onNewAccessTokenCallback
+        )
     }
 
     fun installActivityProvider(activityProvider: ActivityProvider) {
@@ -52,19 +61,19 @@ object TicketAuth {
     val accessToken: String?
         get()  {
             checkInit()
-            return engine?.authState?.accessToken
+            return engine?.accessToken
         }
 
     val isAuthorized: Boolean
         get() {
             checkInit()
-            return engine!!.authState.isAuthorized
+            return engine!!.isAuthorized
         }
 
     private fun checkInit() {
         checkSetup()
         engine?.let {
-            if(it.activityProvider == null) {
+            if(!it.hasActivityProvider()) {
                 throw(RuntimeException("You must install an activity provider"))
             }
         }

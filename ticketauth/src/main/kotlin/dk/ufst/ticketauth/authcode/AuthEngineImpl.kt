@@ -59,6 +59,9 @@ internal class AuthEngineImpl(
 
     override val accessToken: String?
         get() = authState.accessToken
+
+    override val isAuthorized: Boolean
+        get() = authState.isAuthorized
     
     override fun needsTokenRefresh(): Boolean = authState.needsTokenRefresh
 
@@ -83,7 +86,7 @@ internal class AuthEngineImpl(
             Uri.parse("${dcsBaseUrl}$LOGOUT_PATH")
         )
 
-    fun installActivityProvider(activityProvider: ActivityProvider) {
+    override fun installActivityProvider(activityProvider: ActivityProvider) {
         this.activityProvider = activityProvider
         startForResultAuth =
             activityProvider!!.invoke().registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
@@ -94,6 +97,8 @@ internal class AuthEngineImpl(
                 processLogoutResult(result)
             }
     }
+
+    override fun hasActivityProvider() = activityProvider != null
 
     override fun launchAuthIntent() {
         log("Launching auth intent")
