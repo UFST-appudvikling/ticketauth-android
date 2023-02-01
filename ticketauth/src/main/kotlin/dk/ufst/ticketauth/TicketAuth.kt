@@ -38,14 +38,20 @@ object TicketAuth {
         debug = true
         engine?.destroy()
         engine = AutomatedAuthEngine(
-            context = config.context,
             sharedPrefs = config.sharedPrefs,
-            baseUrl = config.baseUrl,
+            context = config.context,
+            dcsBaseUrl = config.baseUrl,
             clientId = config.clientId,
+            scopes = config.scopes,
+            redirectUri = config.redirectUri,
+            onNewAccessToken = config.onNewAccessTokenCallback,
+            onAuthResultCallback = config.onAuthResultCallback,
+            tokenUrl = config.tokenUrl,
             apiKey = config.apiKey,
+            nonce = config.nonce,
             provider = config.provider,
-            onNewAccessToken = config.onNewAccessTokenCallback
         )
+        authenticator = AuthenticatorImpl(engine!!)
     }
 
     fun installActivityProvider(activityProvider: ActivityProvider) {

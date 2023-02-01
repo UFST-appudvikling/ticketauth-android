@@ -102,6 +102,7 @@ internal class AuthEngineImpl(
 
     override fun launchAuthIntent() {
         log("Launching auth intent")
+        // TODO this should be removed but properly tested. since config is created in init
         serviceConfig = buildServiceConfig()
         val authRequest = AuthorizationRequest.Builder(
             serviceConfig, clientId,
