@@ -142,9 +142,41 @@ internal class AutomatedAuthEngine(
                         put("countryCode", "DK")
                     }
                     jsonParams.put("authenticatedUser", jsonUser)
-                    val delegate = JSONObject().apply {
 
+                    /*
+                    val delegate = JSONObject().apply {
+                        put("identifier", "")
+                        put("typeOfIdentifier", "")
+                        put("alternateIdentifier", "")
+                        put("alternateIdentifierType", "")
+                        put("alternateName", "")
+                        put("legalname", "")
+                        put("typeOfActor", "")
+                        put("typeOfPerson", "")
+                        put("countryCode", "")
                     }
+                    jsonParams.put("delegate", delegate)
+                     */
+
+                    val delegator = JSONObject().apply {
+                        put("identifier", "33896263")
+                        put("typeOfIdentifier", "NA_DK_VirksomhedSENummer")
+                        put("alternateIdentifier", "33896263")
+                        put("alternateIdentifierType", "NA_DK_VirksomhedCVRNummer")
+                        put("alternateName", "TEST_Billetautomat_Med Ansatte")
+                        put("legalname", "TEST_Billetautomat_Med Ansatte")
+                        put("typeOfActor", "EO")
+                        put("typeOfPerson", "LP")
+                        put("countryCode", "DK")
+                    }
+                    jsonParams.put("delegator", delegator)
+                    val jsonAuthorizations = JSONObject().apply {
+                        val jsonRoles = JSONArray().also {
+                            it.put("IP.DigitalLogbog.Aktoer.Virksomhed.Angiver.PRG")
+                        }
+                        put("roles", jsonRoles)
+                    }
+                    jsonParams.put("authorizations", jsonAuthorizations)
                 }
             }
             scope.launch {
