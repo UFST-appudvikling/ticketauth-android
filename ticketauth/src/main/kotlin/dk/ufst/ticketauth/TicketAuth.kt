@@ -39,11 +39,7 @@ object TicketAuth {
         engine?.destroy()
         engine = AutomatedAuthEngine(
             sharedPrefs = config.sharedPrefs,
-            context = config.context,
-            dcsBaseUrl = config.baseUrl,
             clientId = config.clientId,
-            scopes = config.scopes,
-            redirectUri = config.redirectUri,
             onNewAccessToken = config.onNewAccessTokenCallback,
             onAuthResultCallback = config.onAuthResultCallback,
             tokenUrl = config.tokenUrl,

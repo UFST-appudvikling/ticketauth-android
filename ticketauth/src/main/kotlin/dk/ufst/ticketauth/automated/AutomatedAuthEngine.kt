@@ -54,7 +54,6 @@ internal class AutomatedAuthEngine(
     override val isAuthorized: Boolean = authState != null
 
 
-    override fun needsTokenRefresh(): Boolean = authState.needsTokenRefresh
     private val scope = CoroutineScope(Dispatchers.IO)
 
 
@@ -129,7 +128,24 @@ internal class AutomatedAuthEngine(
                     }
                     jsonParams.put("authorizations", jsonAuthorizations)
                 }
-                AutomatedAuthConfig.Provider.Dcs -> TODO()
+                AutomatedAuthConfig.Provider.Dcs -> {
+                    val jsonUser = JSONObject().apply {
+                        put("skatQAALevel", "100")
+                        put("eIdentifier", "15749992")
+                        put("typeOfIdentifier", "NA_DK_MedarbejderIdent")
+                        put("alternateIdentifier", "")
+                        put("alternateIdentifierType", "")
+                        put("alternateName", "")
+                        put("legalname", "Test Token")
+                        put("typeOfActor", "EMPL")
+                        put("typeOfPerson", "NP")
+                        put("countryCode", "DK")
+                    }
+                    jsonParams.put("authenticatedUser", jsonUser)
+                    val delegate = JSONObject().apply {
+
+                    }
+                }
             }
             scope.launch {
                 try {
@@ -191,7 +207,6 @@ internal class AutomatedAuthEngine(
     private fun persistAuthState() {
         authState?.let {
             sharedPrefs.edit().putString("accessToken", it.accessToken).apply()
-            sharedPrefs.edit().putLong("tokenExpTime", it.tokenExpTime.epochSecond).apply()
         }
     }
 
@@ -231,6 +246,15 @@ internal class AutomatedAuthEngine(
                 }
             }
         }
+    }
+
+    override fun needsTokenRefresh(): Boolean {
+        authState?.let {
+            // 6 seconds threshold to safeguard against clock inaccuracies
+            val deadline = Instant.now().minusMillis(6000)
+            return it.tokenExpTime.isBefore(deadline)
+        }
+        return true
     }
 
     override fun destroy() {}
