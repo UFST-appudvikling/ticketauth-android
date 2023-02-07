@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import dk.ufst.ticketauth.OnAuthResultCallback
 import dk.ufst.ticketauth.OnNewAccessTokenCallback
+import java.io.InputStream
+import java.nio.charset.Charset
 
 class AuthCodeConfig private constructor(
     val sharedPrefs: SharedPreferences,
@@ -16,7 +18,7 @@ class AuthCodeConfig private constructor(
     val scopes: String,
     val redirectUri: String,
     val onNewAccessTokenCallback: OnNewAccessTokenCallback,
-    val onAuthResultCallback: OnAuthResultCallback,
+    val onAuthResultCallback: OnAuthResultCallback
 ) {
     data class Builder(
         private var sharedPrefs: SharedPreferences? = null,
@@ -27,7 +29,7 @@ class AuthCodeConfig private constructor(
         private var scopes: String? = null,
         private var redirectUri: String? = null,
         private var onNewAccessTokenCallback: OnNewAccessTokenCallback = null,
-        private var onAuthResultCallback: OnAuthResultCallback = null
+        private var onAuthResultCallback: OnAuthResultCallback = null,
     ) {
         fun sharedPrefs(sharedPreferences: SharedPreferences) = apply { this.sharedPrefs = sharedPreferences }
         fun context(context: Context) = apply { this.context = context }

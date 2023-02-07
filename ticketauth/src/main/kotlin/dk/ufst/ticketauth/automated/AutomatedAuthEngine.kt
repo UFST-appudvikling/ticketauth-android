@@ -1,5 +1,6 @@
 package dk.ufst.ticketauth.automated
 
+import android.app.Activity
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Handler
@@ -29,15 +30,11 @@ import java.time.Instant
 
 internal class AutomatedAuthEngine(
     private val sharedPrefs: SharedPreferences,
-    private val clientId: String,
     private val onNewAccessToken: OnNewAccessTokenCallback,
     private val onAuthResultCallback: OnAuthResultCallback,
-    private val tokenUrl: String,
-    private val apiKey: String,
-    private val nonce: String,
-    private val provider: AutomatedAuthConfig.Provider,
+    private val userConfig: JSONObject
 ): AuthEngine {
-
+    private var tokenUrl: String = ""
     data class AuthState (
         var accessToken: String,
         var tokenExpTime : Instant
@@ -52,12 +49,12 @@ internal class AutomatedAuthEngine(
     override val accessToken: String?
         get() = authState?.accessToken
     override val isAuthorized: Boolean = authState != null
-
-
     private val scope = CoroutineScope(Dispatchers.IO)
 
+    private var users: List<AutomatedUser> = emptyList()
 
     init {
+        parseUserConfig()
         // deserialize authstate if we have one, otherwise start with a fresh
         sharedPrefs.getString("accessToken", null)?.let {
             log("Loading existing auth state")
@@ -65,14 +62,13 @@ internal class AutomatedAuthEngine(
         } ?: run {
             log("Creating a new auth state")
         }
-        //log("packageName: ${context.packageName}")
     }
 
     override fun installActivityProvider(activityProvider: ActivityProvider) {
         this.activityProvider = activityProvider
         startForResultAuth =
             activityProvider!!.invoke().registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
-                //processAuthResult(result)
+                processAuthResult(result)
             }
     }
 
@@ -105,90 +101,18 @@ internal class AutomatedAuthEngine(
         // if we get a token response parse it into auth state and let appauth take over
         // through the usual code paths
         try {
-            log("Launching user picker")
-            //startForResultAuth!!.launch(authIntent)
-            val jsonParams = JSONObject().apply {
-                put("api-key", apiKey)
-                put("client_id", clientId)
-                put("azureOrDcs", provider.jsonValue)
-                put("nonce", nonce)
-            }
-            when(provider) {
-                AutomatedAuthConfig.Provider.Azure -> {
-                    val jsonAzure = JSONObject().apply {
-                        put("name", "w20")
-                        put("email", "W20@BilletTest.onmicrosoft.com")
-                    }
-                    jsonParams.put("azure", jsonAzure);
-                    val jsonAuthorizations = JSONObject().apply {
-                        val jsonRoles = JSONArray().also {
-                            it.put("IP.DigitalLogbog.Aktoer.Sagsbehandler.Kontrollant.PRG")
-                        }
-                        put("roles", jsonRoles)
-                    }
-                    jsonParams.put("authorizations", jsonAuthorizations)
-                }
-                AutomatedAuthConfig.Provider.Dcs -> {
-                    val jsonUser = JSONObject().apply {
-                        put("skatQAALevel", "100")
-                        put("eIdentifier", "15749992")
-                        put("typeOfIdentifier", "NA_DK_MedarbejderIdent")
-                        put("alternateIdentifier", "")
-                        put("alternateIdentifierType", "")
-                        put("alternateName", "")
-                        put("legalname", "Test Token")
-                        put("typeOfActor", "EMPL")
-                        put("typeOfPerson", "NP")
-                        put("countryCode", "DK")
-                    }
-                    jsonParams.put("authenticatedUser", jsonUser)
-
-                    /*
-                    val delegate = JSONObject().apply {
-                        put("identifier", "")
-                        put("typeOfIdentifier", "")
-                        put("alternateIdentifier", "")
-                        put("alternateIdentifierType", "")
-                        put("alternateName", "")
-                        put("legalname", "")
-                        put("typeOfActor", "")
-                        put("typeOfPerson", "")
-                        put("countryCode", "")
-                    }
-                    jsonParams.put("delegate", delegate)
-                     */
-
-                    val delegator = JSONObject().apply {
-                        put("identifier", "33896263")
-                        put("typeOfIdentifier", "NA_DK_VirksomhedSENummer")
-                        put("alternateIdentifier", "33896263")
-                        put("alternateIdentifierType", "NA_DK_VirksomhedCVRNummer")
-                        put("alternateName", "TEST_Billetautomat_Med Ansatte")
-                        put("legalname", "TEST_Billetautomat_Med Ansatte")
-                        put("typeOfActor", "EO")
-                        put("typeOfPerson", "LP")
-                        put("countryCode", "DK")
-                    }
-                    jsonParams.put("delegator", delegator)
-                    val jsonAuthorizations = JSONObject().apply {
-                        val jsonRoles = JSONArray().also {
-                            it.put("IP.DigitalLogbog.Aktoer.Virksomhed.Angiver.PRG")
-                        }
-                        put("roles", jsonRoles)
-                    }
-                    jsonParams.put("authorizations", jsonAuthorizations)
+            log("Launching SelectUserActivity")
+            val intent = Intent(activityProvider!!.invoke(), SelectUserActivity::class.java)
+            val jsonUsers = JSONArray()
+            users.forEach { user ->
+                JSONObject().apply {
+                    put("title", user.title)
+                }.also {
+                    jsonUsers.put(it)
                 }
             }
-            scope.launch {
-                try {
-                    val jsonResponse = postJson(tokenUrl, jsonParams)
-                    processTokenResponse(jsonResponse)
-                } catch (t : Throwable) {
-                    log("Token endpoint called failed with exception: ${t.message}")
-                    wakeThreads(AuthResult.ERROR)
-                    t.printStackTrace()
-                }
-            }
+            intent.putExtra("users", jsonUsers.toString())
+            startForResultAuth!!.launch(intent)
         } catch (t : Throwable) {
             log("Cannot launch auth due to exception: ${t.message}")
             t.printStackTrace()
@@ -201,6 +125,55 @@ internal class AutomatedAuthEngine(
         wakeThreads(AuthResult.ERROR)
     }
 
+
+    private fun processAuthResult(result: ActivityResult) {
+        log("processAuthResult $result")
+        if(result.resultCode == Activity.RESULT_CANCELED) {
+            log("Auth flow was cancelled by user")
+            wakeThreads(AuthResult.CANCELLED_FLOW)
+        } else {
+            result.data?.let { data ->
+                val index = data.getIntExtra("index", -1)
+                log("got index: $index from user picker, user ${users[index]}")
+                loginUser(users[index])
+            } ?: run {
+                log("ActivityResult yielded no data (intent) to process")
+                wakeThreads(AuthResult.ERROR)
+            }
+        }
+    }
+
+    private fun loginUser(user: AutomatedUser) {
+        val jsonParams = JSONObject().apply {
+            put("api-key", user.apiKey)
+            put("client_id", user.clientId)
+            put("azureOrDcs", user.provider.jsonValue)
+            put("nonce", user.nonce)
+        }
+        when(user.provider) {
+            AutomatedAuthConfig.Provider.Azure -> {
+                jsonParams.put("azure", user.providerData);
+                jsonParams.put("authorizations", user.authorizations)
+            }
+            AutomatedAuthConfig.Provider.Dcs -> {
+                for (key in user.providerData.keys()) {
+                    jsonParams.put(key, user.providerData.get(key))
+                }
+                jsonParams.put("authorizations", user.authorizations)
+            }
+        }
+        scope.launch {
+            try {
+                log("Token request:\n${jsonParams.toString(2)}")
+                val jsonResponse = postJson(tokenUrl, jsonParams)
+                processTokenResponse(jsonResponse)
+            } catch (t : Throwable) {
+                log("Token endpoint called failed with exception: ${t.message}")
+                wakeThreads(AuthResult.ERROR)
+                t.printStackTrace()
+            }
+        }
+    }
 
     private fun processTokenResponse(tokenResponse: JSONObject) {
         log("processTokenResponse ${tokenResponse.toString(4)}")
@@ -282,7 +255,7 @@ internal class AutomatedAuthEngine(
 
     override fun needsTokenRefresh(): Boolean {
         authState?.let {
-            // 6 seconds threshold to safeguard against clock inaccuracies
+            // 6 seconds grace period to safeguard against clock inaccuracies
             val deadline = Instant.now().minusMillis(6000)
             return it.tokenExpTime.isBefore(deadline)
         }
@@ -290,4 +263,24 @@ internal class AutomatedAuthEngine(
     }
 
     override fun destroy() {}
+
+    private fun parseUserConfig() {
+        if(userConfig.has("url")) {
+            tokenUrl = userConfig.getString("url")
+        } else {
+            throw(RuntimeException("Parsing user config failed: no url found (for the token endpoint)"))
+        }
+        if(!userConfig.has("users")) {
+            throw(RuntimeException("Parsing user config failed: no users array found"))
+        }
+        val usersJson = userConfig.getJSONArray("users")
+        val userList: MutableList<AutomatedUser> = mutableListOf()
+        for(i in 0 until usersJson.length()) {
+            val user = AutomatedUser.fromJSON(usersJson.getJSONObject(i))
+            userList.add(user)
+            log("Added user from config:\n$user")
+        }
+        users = userList
+        log("Read ${users.size} users from configuration")
+    }
 }

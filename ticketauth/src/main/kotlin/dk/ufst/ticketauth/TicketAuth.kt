@@ -39,13 +39,9 @@ object TicketAuth {
         engine?.destroy()
         engine = AutomatedAuthEngine(
             sharedPrefs = config.sharedPrefs,
-            clientId = config.clientId,
             onNewAccessToken = config.onNewAccessTokenCallback,
             onAuthResultCallback = config.onAuthResultCallback,
-            tokenUrl = config.tokenUrl,
-            apiKey = config.apiKey,
-            nonce = config.nonce,
-            provider = config.provider,
+            userConfig = config.userConfig
         )
         authenticator = AuthenticatorImpl(engine!!)
     }
