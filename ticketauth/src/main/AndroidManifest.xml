@@ -18,6 +18,7 @@
         <activity
             android:name=".automated.SelectUserActivity"
             android:exported="false"
+            android:theme="@android:style/Theme.NoTitleBar"
         />
     </application>
 </manifest>
