@@ -16,7 +16,6 @@ import dk.ufst.ticketauth.AuthEngine
 import dk.ufst.ticketauth.AuthResult
 import dk.ufst.ticketauth.OnAuthResultCallback
 import dk.ufst.ticketauth.OnNewAccessTokenCallback
-import dk.ufst.ticketauth.automated.AutomatedAuthEngine
 import dk.ufst.ticketauth.log
 import net.openid.appauth.AuthState
 import net.openid.appauth.AuthorizationException
@@ -32,7 +31,7 @@ import java.nio.charset.Charset
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
 
-internal class AuthEngineImpl(
+internal class AuthCodeEngine(
     context: Context,
     private val sharedPrefs: SharedPreferences,
     private val dcsBaseUrl: String,

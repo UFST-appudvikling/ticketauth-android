@@ -5,7 +5,7 @@ package dk.ufst.ticketauth
 import android.util.Log
 import androidx.activity.ComponentActivity
 import dk.ufst.ticketauth.authcode.AuthCodeConfig
-import dk.ufst.ticketauth.authcode.AuthEngineImpl
+import dk.ufst.ticketauth.authcode.AuthCodeEngine
 import dk.ufst.ticketauth.authcode.AuthenticatorImpl
 import dk.ufst.ticketauth.automated.AutomatedAuthConfig
 import dk.ufst.ticketauth.automated.AutomatedAuthEngine
@@ -19,7 +19,7 @@ object TicketAuth {
     fun setup(config: AuthCodeConfig) {
         debug = config.debug
         engine?.destroy()
-        engine = AuthEngineImpl(
+        engine = AuthCodeEngine(
             context = config.context,
             sharedPrefs = config.sharedPrefs,
             dcsBaseUrl = config.dcsBaseUrl,
@@ -46,7 +46,7 @@ object TicketAuth {
 
     fun setHostActivity(activity: ComponentActivity) {
         AutomatedAuthEngine.registerActivityLaunchers(activity)
-        AuthEngineImpl.registerActivityLaunchers(activity)
+        AuthCodeEngine.registerActivityLaunchers(activity)
     }
 
     fun authenticator(): Authenticator {
