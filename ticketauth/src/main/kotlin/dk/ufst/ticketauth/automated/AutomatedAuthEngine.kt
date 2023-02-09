@@ -6,10 +6,9 @@ import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
+import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResult
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
-import dk.ufst.ticketauth.ActivityProvider
+import dk.ufst.ticketauth.ActivityLauncher
 import dk.ufst.ticketauth.AuthEngine
 import dk.ufst.ticketauth.AuthResult
 import dk.ufst.ticketauth.OnAuthResultCallback
@@ -40,15 +39,15 @@ internal class AutomatedAuthEngine(
         var tokenExpTime : Instant
     )
     override val roles = mutableListOf<String>()
-    var activityProvider: ActivityProvider = null
-    private var startForResultAuth: ActivityResultLauncher<Intent?>? = null
+
     private var authState: AuthState? = null
 
     override var onWakeThreads: ()->Unit = {}
     override val jobs: MutableMap<Int, AuthJob> = mutableMapOf()
     override val accessToken: String?
         get() = authState?.accessToken
-    override val isAuthorized: Boolean = authState != null
+    override val isAuthorized: Boolean
+        get() = !needsTokenRefresh()
     private val scope = CoroutineScope(Dispatchers.IO)
 
     private var users: List<AutomatedUser> = emptyList()
@@ -63,16 +62,6 @@ internal class AutomatedAuthEngine(
             log("Creating a new auth state")
         }
     }
-
-    override fun installActivityProvider(activityProvider: ActivityProvider) {
-        this.activityProvider = activityProvider
-        startForResultAuth =
-            activityProvider!!.invoke().registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
-                processAuthResult(result)
-            }
-    }
-
-    override fun hasActivityProvider() = activityProvider != null
 
     private fun postJson(url: String, json: JSONObject): JSONObject {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
@@ -97,12 +86,9 @@ internal class AutomatedAuthEngine(
 
     override fun launchAuthIntent() {
         // launch user selector
-        // call automated token endpoint
-        // if we get a token response parse it into auth state and let appauth take over
-        // through the usual code paths
         try {
-            log("Launching SelectUserActivity")
-            val intent = Intent(activityProvider!!.invoke(), SelectUserActivity::class.java)
+            log("Launching select user activity")
+            val intent = Intent(selectUserLauncher!!.activity(), SelectUserActivity::class.java)
             val jsonUsers = JSONArray()
             users.forEach { user ->
                 JSONObject().apply {
@@ -112,24 +98,28 @@ internal class AutomatedAuthEngine(
                 }
             }
             intent.putExtra("users", jsonUsers.toString())
-            startForResultAuth!!.launch(intent)
+            selectUserLauncher!!.launch(intent) {
+                processSelectUserResult(it)
+            }
         } catch (t : Throwable) {
-            log("Cannot launch auth due to exception: ${t.message}")
+            log("Cannot launch select user activity due to exception: ${t.message}")
             t.printStackTrace()
             wakeThreads(AuthResult.ERROR)
         }
     }
 
     override fun launchLogoutIntent() {
-        log("Logout is not supported with automated login")
-        wakeThreads(AuthResult.ERROR)
+        log("Logout is not supported with automated login, clearing auth state to emulate logout")
+        authState = null
+        persistAuthState()
+        roles.clear()
+        wakeThreads(AuthResult.SUCCESS)
     }
 
-
-    private fun processAuthResult(result: ActivityResult) {
+    private fun processSelectUserResult(result: ActivityResult) {
         log("processAuthResult $result")
         if(result.resultCode == Activity.RESULT_CANCELED) {
-            log("Auth flow was cancelled by user")
+            log("Select user activity was cancelled by user")
             wakeThreads(AuthResult.CANCELLED_FLOW)
         } else {
             result.data?.let { data ->
@@ -152,7 +142,7 @@ internal class AutomatedAuthEngine(
         }
         when(user.provider) {
             AutomatedAuthConfig.Provider.Azure -> {
-                jsonParams.put("azure", user.providerData);
+                jsonParams.put("azure", user.providerData)
                 jsonParams.put("authorizations", user.authorizations)
             }
             AutomatedAuthConfig.Provider.Dcs -> {
@@ -212,6 +202,8 @@ internal class AutomatedAuthEngine(
     private fun persistAuthState() {
         authState?.let {
             sharedPrefs.edit().putString("accessToken", it.accessToken).apply()
+        } ?: run {
+            sharedPrefs.edit().remove("accessToken").apply()
         }
     }
 
@@ -283,4 +275,15 @@ internal class AutomatedAuthEngine(
         users = userList
         log("Read ${users.size} users from configuration")
     }
+
+    override val hasRegisteredActivityLaunchers: Boolean
+        get() = selectUserLauncher != null
+
+    companion object {
+        private var selectUserLauncher: ActivityLauncher? = null
+        fun registerActivityLaunchers(activity: ComponentActivity) {
+            selectUserLauncher = ActivityLauncher(activity)
+        }
+    }
 }
+

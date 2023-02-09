@@ -1,5 +1,6 @@
 package dk.ufst.ticketauth
 
+import androidx.activity.ComponentActivity
 import dk.ufst.ticketauth.authcode.AuthJob
 
 typealias OnNewAccessTokenCallback = ((String)->Unit)?
@@ -15,11 +16,10 @@ internal interface AuthEngine {
     fun runOnUiThread(block: ()->Unit)
     fun destroy()
 
+    val hasRegisteredActivityLaunchers: Boolean
     val jobs: MutableMap<Int, AuthJob>
 
     val roles: List<String>
     val accessToken: String?
     val isAuthorized: Boolean
-    fun installActivityProvider(activityProvider: ActivityProvider)
-    fun hasActivityProvider(): Boolean
 }

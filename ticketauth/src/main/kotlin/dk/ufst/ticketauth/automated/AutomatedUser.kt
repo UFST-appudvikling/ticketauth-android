@@ -2,7 +2,7 @@ package dk.ufst.ticketauth.automated
 
 import org.json.JSONObject
 
-data class AutomatedUser(
+internal data class AutomatedUser(
     val title: String,
     val apiKey: String,
     val clientId: String,

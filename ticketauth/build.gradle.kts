@@ -13,6 +13,11 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+        buildConfigField(
+            "String",
+            "TICKETAUTH_VERSION",
+            "\"1.1.0\""
+        )
     }
 
     buildTypes {

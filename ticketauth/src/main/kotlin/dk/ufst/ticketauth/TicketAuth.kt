@@ -11,8 +11,6 @@ import dk.ufst.ticketauth.automated.AutomatedAuthConfig
 import dk.ufst.ticketauth.automated.AutomatedAuthEngine
 import org.jetbrains.annotations.NonNls
 
-typealias ActivityProvider = (()-> ComponentActivity)?
-
 object TicketAuth {
     private var engine: AuthEngine? = null
     private var debug: Boolean = false
@@ -22,8 +20,8 @@ object TicketAuth {
         debug = config.debug
         engine?.destroy()
         engine = AuthEngineImpl(
-            sharedPrefs = config.sharedPrefs,
             context = config.context,
+            sharedPrefs = config.sharedPrefs,
             dcsBaseUrl = config.dcsBaseUrl,
             clientId = config.clientId,
             scopes = config.scopes,
@@ -46,9 +44,9 @@ object TicketAuth {
         authenticator = AuthenticatorImpl(engine!!)
     }
 
-    fun installActivityProvider(activityProvider: ActivityProvider) {
-        checkSetup()
-        engine?.installActivityProvider(activityProvider)
+    fun setHostActivity(activity: ComponentActivity) {
+        AutomatedAuthEngine.registerActivityLaunchers(activity)
+        AuthEngineImpl.registerActivityLaunchers(activity)
     }
 
     fun authenticator(): Authenticator {
@@ -70,10 +68,8 @@ object TicketAuth {
 
     private fun checkInit() {
         checkSetup()
-        engine?.let {
-            if(!it.hasActivityProvider()) {
-                throw(RuntimeException("You must install an activity provider"))
-            }
+        if(!engine!!.hasRegisteredActivityLaunchers) {
+            throw(RuntimeException("You must call setHostActivity first"))
         }
     }
 

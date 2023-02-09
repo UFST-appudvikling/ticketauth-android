@@ -7,14 +7,15 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams
-import android.view.ViewGroup.LayoutParams.*
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.view.setPadding
+import dk.ufst.ticketauth.BuildConfig
 import org.json.JSONArray
 
 class SelectUserActivity : Activity() {
@@ -35,13 +36,23 @@ class SelectUserActivity : Activity() {
         val ll = LinearLayout(this)
         ll.orientation = LinearLayout.VERTICAL
         ll.layoutParams = LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        ll.setPadding(0, toDp(16f).toInt(), 0, 0)
         ll.setBackgroundColor(bgColor)
         TextView(this)
             .apply {
-                text = "Select User"
+                text = "Automated Login"
                 setTextColor(textColor)
                 gravity = Gravity.CENTER_HORIZONTAL
-                textSize = toDp(12.0f)
+                textSize = toDp(10.0f)
+            }
+            .also { ll.addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)) }
+
+        TextView(this)
+            .apply {
+                text = "Powered by TicketAuth v${BuildConfig.TICKETAUTH_VERSION}"
+                setTextColor(textColor)
+                gravity = Gravity.CENTER_HORIZONTAL
+                textSize = toDp(5.0f)
             }
             .also { ll.addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)) }
 
@@ -52,6 +63,10 @@ class SelectUserActivity : Activity() {
                 for(i in 0 until users.length()) {
                     val user = users.getJSONObject(i)
                     val title = user.getString("title")
+                    val lparams =  LinearLayout.LayoutParams(
+                        MATCH_PARENT, WRAP_CONTENT).apply {
+                            setMargins(0, toDp(8f).toInt(), 0, toDp(8f).toInt())
+                        }
                     addView(Button(this@SelectUserActivity).apply {
                         text = title
                         //setTextColor(textColor)
@@ -59,8 +74,7 @@ class SelectUserActivity : Activity() {
                         setOnClickListener {
                             onClicked(i)
                         }
-                    }, LinearLayout.LayoutParams(
-                        MATCH_PARENT, WRAP_CONTENT))
+                    }, lparams)
                 }
             }, LayoutParams(MATCH_PARENT, MATCH_PARENT))
         }.also { ll.addView(it, LinearLayout.LayoutParams(MATCH_PARENT, 0).apply { weight = 1.0f }) }
