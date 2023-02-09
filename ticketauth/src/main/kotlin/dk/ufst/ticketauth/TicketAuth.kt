@@ -2,6 +2,7 @@
 
 package dk.ufst.ticketauth
 
+import android.content.Context
 import android.util.Log
 import androidx.activity.ComponentActivity
 import dk.ufst.ticketauth.authcode.AuthCodeConfig
@@ -19,9 +20,10 @@ object TicketAuth {
     fun setup(config: AuthCodeConfig) {
         debug = config.debug
         engine?.destroy()
+        val sharedPrefs = hostApplicationContext!!.getSharedPreferences("ticketauth", Context.MODE_PRIVATE)
         engine = AuthCodeEngine(
-            context = config.context,
-            sharedPrefs = config.sharedPrefs,
+            context = hostApplicationContext!!,
+            sharedPrefs = sharedPrefs,
             dcsBaseUrl = config.dcsBaseUrl,
             clientId = config.clientId,
             scopes = config.scopes,
@@ -35,8 +37,9 @@ object TicketAuth {
     fun setup(config: AutomatedAuthConfig) {
         debug = true
         engine?.destroy()
+        val sharedPrefs = hostApplicationContext!!.getSharedPreferences("ticketauth", Context.MODE_PRIVATE)
         engine = AutomatedAuthEngine(
-            sharedPrefs = config.sharedPrefs,
+            sharedPrefs = sharedPrefs,
             onNewAccessToken = config.onNewAccessTokenCallback,
             onAuthResultCallback = config.onAuthResultCallback,
             userConfig = config.userConfig
@@ -74,6 +77,9 @@ object TicketAuth {
     }
 
     private fun checkSetup() {
+        if(hostApplicationContext == null) {
+            throw(RuntimeException("TicketAuth has not been initialized properly, unable to get host application context"))
+        }
         if(engine == null) {
             throw(RuntimeException("TicketAuth has not been initialized. Please call setup() before calling any other functions"))
         }

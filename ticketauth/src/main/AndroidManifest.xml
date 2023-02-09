@@ -20,5 +20,9 @@
             android:exported="false"
             android:theme="@android:style/Theme.NoTitleBar"
         />
+        <provider
+            android:name=".TicketAuthInitProvider"
+            android:authorities="dk.ufst.ticketauth.TicketAuthInitProvider"
+            android:exported="false" />
     </application>
 </manifest>

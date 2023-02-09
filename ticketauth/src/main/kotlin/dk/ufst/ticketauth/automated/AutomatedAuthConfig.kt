@@ -3,7 +3,6 @@
 package dk.ufst.ticketauth.automated
 
 import android.content.Context
-import android.content.SharedPreferences
 import dk.ufst.ticketauth.OnAuthResultCallback
 import dk.ufst.ticketauth.OnNewAccessTokenCallback
 import org.json.JSONObject
@@ -11,18 +10,15 @@ import java.io.InputStream
 import java.nio.charset.Charset
 
 class AutomatedAuthConfig private constructor(
-    val sharedPrefs: SharedPreferences,
     val onNewAccessTokenCallback: OnNewAccessTokenCallback,
     val onAuthResultCallback: OnAuthResultCallback,
     val userConfig: JSONObject
 ) {
     data class Builder(
-        private var sharedPrefs: SharedPreferences? = null,
         private var onNewAccessTokenCallback: OnNewAccessTokenCallback = null,
         private var onAuthResultCallback: OnAuthResultCallback = null,
         private var userConfig: JSONObject? = null
     ) {
-        fun sharedPrefs(sharedPreferences: SharedPreferences) = apply { this.sharedPrefs = sharedPreferences }
         fun onNewAccessToken(callback: OnNewAccessTokenCallback) = apply { this.onNewAccessTokenCallback = callback}
         fun onAuthResult(callback: OnAuthResultCallback) = apply { this.onAuthResultCallback = callback}
         fun userConfig(config: String) = apply {
@@ -33,7 +29,6 @@ class AutomatedAuthConfig private constructor(
             }
         }
         fun build() = AutomatedAuthConfig(
-            sharedPrefs ?: throw(RuntimeException("sharedPrefs is required")),
             onNewAccessTokenCallback,
             onAuthResultCallback,
             userConfig ?: throw(RuntimeException("No configuration specified"))
