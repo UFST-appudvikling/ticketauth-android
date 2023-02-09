@@ -22,7 +22,7 @@
         />
         <provider
             android:name=".TicketAuthInitProvider"
-            android:authorities="dk.ufst.ticketauth.TicketAuthInitProvider"
+            android:authorities="${applicationId}.TicketAuthInitProvider"
             android:exported="false" />
     </application>
 </manifest>
