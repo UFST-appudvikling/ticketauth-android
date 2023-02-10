@@ -1,5 +1,6 @@
 package dk.ufst.ticketauth.automated
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.content.SharedPreferences
@@ -25,7 +26,15 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.Charset
+import java.security.SecureRandom
+import java.security.cert.CertificateException
+import java.security.cert.X509Certificate
 import java.time.Instant
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 internal class AutomatedAuthEngine(
     private val sharedPrefs: SharedPreferences,
@@ -63,8 +72,49 @@ internal class AutomatedAuthEngine(
         }
     }
 
+    private fun unsafeHttps(https: HttpsURLConnection) {
+        // Create a trust manager that does not validate certificate chains
+        val trustAllCerts: Array<TrustManager> = arrayOf(
+            @SuppressLint("CustomX509TrustManager")
+            object : X509TrustManager {
+                override fun checkClientTrusted(
+                    chain: Array<X509Certificate?>?,
+                    authType: String?
+                ) {
+                    // Having some code in this function truly suppresses the TrustAllX509TrustManager
+                    // warning. Using SuppressLint/Suppress only suppresses the warning
+                    // in Android Studio, but is still warned by the "gradlew lint" command.
+                    Any()
+                }
+
+                @Throws(CertificateException::class)
+                override fun checkServerTrusted(
+                    chain: Array<X509Certificate?>?,
+                    authType: String?
+                ) {
+                    // Having some code in this function truly suppresses the TrustAllX509TrustManager
+                    // warning. Using SuppressLint/Suppress only suppresses the warning
+                    // in Android Studio, but is still warned by the "gradlew lint" command.
+                    Any()
+                }
+
+                override fun getAcceptedIssuers(): Array<X509Certificate> {
+                    return arrayOf()
+                }
+            }
+        )
+
+        // Install the all-trusting trust manager
+        val sslContext: SSLContext = SSLContext.getInstance("SSL")
+        sslContext.init(null, trustAllCerts, SecureRandom())
+        // Create an ssl socket factory with our all-trusting manager
+        val sslSocketFactory: SSLSocketFactory = sslContext.socketFactory
+        https.sslSocketFactory = sslSocketFactory
+    }
+
     private fun postJson(url: String, json: JSONObject): JSONObject {
-        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+        val connection = (URL(url).openConnection() as HttpsURLConnection).apply {
+            unsafeHttps(this)
             requestMethod = "POST"
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")
