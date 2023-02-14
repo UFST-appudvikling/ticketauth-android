@@ -1,6 +1,7 @@
-# TicketAuth Android
+# TicketAuth Android 1.1.0
 
 Small android library that simplifies OAuth Code flow (web logins).
+This describes release 1.1.0, for earlier versions of the documentation, consult the relevant release branches.
 
 # Usage
 
@@ -23,7 +24,7 @@ Upon calling TicketAuth.setHostActivity the library will update activity launche
 apps responsebility to make sure it gets called after configuration changes etc (that recreate the host apps activity).
 
 In your apps MainActivity onCreate method add this:
-```
+```kotlin 
     TicketAuth.setHostActivity(this)
 ```
 
@@ -32,7 +33,7 @@ doesn't have a valid activity context when needed, an exception will be thrown.
 
 ### Auth Code
 Setup the library for Auth Code which is OAuth/OpenConnect Code Authorization flow:
-```
+```kotlin
 TicketAuth.setup(
     AuthCodeConfig.Builder()
         .dcsBaseUrl("https://baseurl")
@@ -48,13 +49,13 @@ Auth state is automatically persisted between application restarts.
 The library generates a default redirectUri which is packagename + ".ticketauth" if you for one
 reason or another needs to manually specify a redirectUri, call this function:
 
-```
+```kotlin
     .redirectUri("myapp://callback")
 ```
 
 If you specify a custom redirectUri you need to define a manifest override as well in your app:
 
-```
+```xml
 <activity
         android:name="net.openid.appauth.RedirectUriReceiverActivity"
         android:exported="true"
@@ -79,7 +80,7 @@ from a third party endpoint. This feature is meant to ease testing.
 
 ___Automated login doesn't support token refresh and will default to relogin whenever the token expires.___
 
-```
+```kotlin
 TicketAuth.setup(
     AutomatedAuthConfig.Builder()
         .userConfig(AutomatedAuthConfig.fromAssets("users.json"))
@@ -102,7 +103,7 @@ the individual Auth Engines config builders (see above).
 If you need to get a callback whenever the library obtains a new access token, either through
 token refresh or relogin, call this function:
 
-```
+```kotlin
     .onNewAccessToken { token ->
         // do something with token
     }
@@ -112,7 +113,7 @@ token refresh or relogin, call this function:
 Use this if you need a callback each time an AuthResult is obtained.
 This is handy if you want to centralize error handling etc
 
-```
+```kotlin
    .onAuthResult { result ->
         // do something with result
     }
@@ -121,7 +122,7 @@ This is handy if you want to centralize error handling etc
 ## Authenticator object
 When TicketAuth is configured you can get a Authenticator object like this:
 
-```
+```kotlin
 val authenticator = TicketAuth.authenticator()
 ```
 This is used for communicating with the library.
@@ -139,7 +140,7 @@ Following values can be returned by prepareCall:
 - AuthResult.CANCELLED_FLOW, user cancelled the login flow (by closing the browser window)
 - AuthResult.ERROR, Something went wrong, likely network error.
 
-```
+```kotlin
 when(authenticator.prepareCall()) {
     AuthResult.CANCELLED_FLOW -> TODO() // return status so domain layer can decide what to do
     AuthResult.ERROR -> TODO() // // return status so domain layer can decide what to do
@@ -154,7 +155,7 @@ Authenticator.prepareCall() works by blocking the caller until token refresh or 
 TicketAuth automatically attempts to login if needed when calling Authenticator.prepareCall()
 but if you want to login without calling an endpoint you can use:
 
-```
+```kotlin
 if(!TicketAuth.isAuthorized) {
     TicketAuth.authenticator().login()
 }
@@ -165,7 +166,7 @@ It is possible to pass a callback function to login inorder to notified whenever
 complete. This is useful for detecting if the user cancelled the webflow (by closing the browser)
 etc.
 
-```
+```kotlin
 TicketAuth.authenticator().login { result ->
     when(result) {
         AuthResult.SUCCESS -> {
@@ -186,16 +187,16 @@ library will only ever show one login or do one token refresh.__
 
 ### Logout
 If you want to run the oauth logout flow call:
-```
+```kotlin
 authenticator.logout()
 ```
 
-___When using Automated Auth no actual login endpoint is called. Instead local auth state is invalidated.___ 
+___When using Automated Auth no actual logout endpoint is called. Instead local auth state is invalidated.___ 
 
 #### Get notified when logout flow is complete
 It is possible to get called back whenever the logout flow is completed.
 
-```
+```kotlin
 TicketAuth.authenticator().logout { result ->
     when(result) {
         AuthResult.SUCCESS -> {
@@ -215,7 +216,7 @@ TicketAuth.authenticator().logout { result ->
 You might need to clear the current auth state (and all tokens) manually on the response
 to some event. To do this call:
 
-```
+```kotlin
 authenticator.clearToken()
 ```
 
