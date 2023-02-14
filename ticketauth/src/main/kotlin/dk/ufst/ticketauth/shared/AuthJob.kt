@@ -1,4 +1,7 @@
-package dk.ufst.ticketauth
+package dk.ufst.ticketauth.shared
+
+import dk.ufst.ticketauth.AuthCallback
+import dk.ufst.ticketauth.AuthResult
 
 data class AuthJob (
     var id: Int = 0,

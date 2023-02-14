@@ -1,4 +1,4 @@
-package dk.ufst.ticketauth
+package dk.ufst.ticketauth.authcode
 
 import android.app.Activity
 import android.content.Context
@@ -9,9 +9,15 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Base64
 import android.util.Log
+import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResult
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
+import dk.ufst.ticketauth.ActivityLauncher
+import dk.ufst.ticketauth.AuthEngine
+import dk.ufst.ticketauth.AuthResult
+import dk.ufst.ticketauth.OnAuthResultCallback
+import dk.ufst.ticketauth.OnNewAccessTokenCallback
+import dk.ufst.ticketauth.log
+import dk.ufst.ticketauth.shared.AuthJob
 import net.openid.appauth.AuthState
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
@@ -26,7 +32,7 @@ import java.nio.charset.Charset
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
 
-internal class AuthEngineImpl(
+internal class AuthCodeEngine(
     context: Context,
     private val sharedPrefs: SharedPreferences,
     private val dcsBaseUrl: String,
@@ -38,21 +44,22 @@ internal class AuthEngineImpl(
 ): AuthEngine {
     private var authService: AuthorizationService = AuthorizationService(context)
     private var serviceConfig : AuthorizationServiceConfiguration
-    var authState: AuthState = AuthState()
+    private var authState: AuthState = AuthState()
 
     override val roles = mutableListOf<String>()
 
     private val refreshLock = ReentrantLock()
     private val refreshCondition: Condition = refreshLock.newCondition()
-    var activityProvider: ActivityProvider = null
-    private var startForResultAuth: ActivityResultLauncher<Intent?>? = null
-    private var startForResultLogout: ActivityResultLauncher<Intent?>? = null
+
     override var onWakeThreads: ()->Unit = {}
     
     override val jobs: MutableMap<Int, AuthJob> = mutableMapOf()
 
     override val accessToken: String?
         get() = authState.accessToken
+
+    override val isAuthorized: Boolean
+        get() = authState.isAuthorized
     
     override fun needsTokenRefresh(): Boolean = authState.needsTokenRefresh
 
@@ -71,26 +78,15 @@ internal class AuthEngineImpl(
 
     private fun buildServiceConfig() =
         AuthorizationServiceConfiguration(
-            Uri.parse("${dcsBaseUrl}${AUTH_PATH}"),  // authorization endpoint
-            Uri.parse("${dcsBaseUrl}${TOKEN_PATH}"), // token endpoint
+            Uri.parse("${dcsBaseUrl}$AUTH_PATH"),  // authorization endpoint
+            Uri.parse("${dcsBaseUrl}$TOKEN_PATH"), // token endpoint
             null,
-            Uri.parse("${dcsBaseUrl}${LOGOUT_PATH}")
+            Uri.parse("${dcsBaseUrl}$LOGOUT_PATH")
         )
-
-    fun installActivityProvider(activityProvider: ActivityProvider) {
-        this.activityProvider = activityProvider
-        startForResultAuth =
-            activityProvider!!.invoke().registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
-                processAuthResult(result)
-            }
-        startForResultLogout =
-            activityProvider.invoke().registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
-                processLogoutResult(result)
-            }
-    }
 
     override fun launchAuthIntent() {
         log("Launching auth intent")
+        // TODO this should be removed but properly tested. since config is created in init
         serviceConfig = buildServiceConfig()
         val authRequest = AuthorizationRequest.Builder(
             serviceConfig, clientId,
@@ -102,7 +98,9 @@ internal class AuthEngineImpl(
         val authIntent: Intent = authService.getAuthorizationRequestIntent(authRequest)
         
         try {
-            startForResultAuth!!.launch(authIntent)
+            authActivityLauncher!!.launch(authIntent) {
+                processAuthResult(it)
+            }
         } catch (t : Throwable) {
             log("Cannot launch auth intent due to exception: ${t.message}")
             wakeThreads(AuthResult.ERROR)
@@ -118,7 +116,9 @@ internal class AuthEngineImpl(
                 .build()
             val endSessionIntent = authService.getEndSessionRequestIntent(endSessionRequest)
             try {
-                startForResultLogout!!.launch(endSessionIntent)
+                logoutActivityLauncher!!.launch(endSessionIntent) { result ->
+                    processLogoutResult(result)
+                }
             } catch (t : Throwable) {
                 log("Cannot launch logout intent due to exception: ${t.message}")
                 wakeThreads(AuthResult.ERROR)
@@ -285,11 +285,14 @@ internal class AuthEngineImpl(
             log("Token Decoded Body: ${bodyJson.toString(4)}")
             roles.clear()
             if (bodyJson.has("realm_access")) {
-                val rolesJson = bodyJson.getJSONObject("realm_access").getJSONArray("roles")
-                rolesJson.let { ar ->
-                    for (i in 0 until ar.length()) {
-                        val role = ar.getString(i)
-                        roles.add(role)
+                val realmAccess = bodyJson.getJSONObject("realm_access")
+                if(realmAccess.has("roles")) {
+                    val rolesJson = realmAccess.getJSONArray("roles")
+                    rolesJson.let { ar ->
+                        for (i in 0 until ar.length()) {
+                            val role = ar.getString(i)
+                            roles.add(role)
+                        }
                     }
                 }
             }
@@ -300,9 +303,20 @@ internal class AuthEngineImpl(
         authService.dispose()
     }
 
+    override val hasRegisteredActivityLaunchers: Boolean
+        get() = authActivityLauncher != null && logoutActivityLauncher != null
+
     companion object {
         private const val AUTH_PATH: String = "/protocol/openid-connect/auth"
         private const val TOKEN_PATH: String = "/protocol/openid-connect/token"
         private const val LOGOUT_PATH: String = "/protocol/openid-connect/logout"
+
+        private var authActivityLauncher: ActivityLauncher? = null
+        private var logoutActivityLauncher: ActivityLauncher? = null
+
+        fun registerActivityLaunchers(activity: ComponentActivity) {
+            authActivityLauncher = ActivityLauncher(activity)
+            logoutActivityLauncher = ActivityLauncher(activity)
+        }
     }
 }

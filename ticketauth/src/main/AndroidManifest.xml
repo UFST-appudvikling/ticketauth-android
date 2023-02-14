@@ -15,5 +15,14 @@
                 <data android:scheme="${applicationId}.ticketauth"/>
             </intent-filter>
         </activity>
+        <activity
+            android:name=".automated.SelectUserActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.NoTitleBar"
+        />
+        <provider
+            android:name=".TicketAuthInitProvider"
+            android:authorities="${applicationId}.TicketAuthInitProvider"
+            android:exported="false" />
     </application>
 </manifest>

@@ -2,23 +2,28 @@
 
 package dk.ufst.ticketauth
 
+import android.content.Context
 import android.util.Log
 import androidx.activity.ComponentActivity
+import dk.ufst.ticketauth.authcode.AuthCodeConfig
+import dk.ufst.ticketauth.authcode.AuthCodeEngine
+import dk.ufst.ticketauth.shared.AuthenticatorImpl
+import dk.ufst.ticketauth.automated.AutomatedAuthConfig
+import dk.ufst.ticketauth.automated.AutomatedAuthEngine
 import org.jetbrains.annotations.NonNls
 
-typealias ActivityProvider = (()-> ComponentActivity)?
-
 object TicketAuth {
-    private var engine: AuthEngineImpl? = null
+    private var engine: AuthEngine? = null
     private var debug: Boolean = false
     private var authenticator: Authenticator? = null
 
-    fun setup(config: TicketAuthConfig) {
+    fun setup(config: AuthCodeConfig) {
         debug = config.debug
         engine?.destroy()
-        engine = AuthEngineImpl(
-            sharedPrefs = config.sharedPrefs,
-            context = config.context,
+        val sharedPrefs = hostApplicationContext!!.getSharedPreferences("ticketauth", Context.MODE_PRIVATE)
+        engine = AuthCodeEngine(
+            context = hostApplicationContext!!,
+            sharedPrefs = sharedPrefs,
             dcsBaseUrl = config.dcsBaseUrl,
             clientId = config.clientId,
             scopes = config.scopes,
@@ -29,9 +34,22 @@ object TicketAuth {
         authenticator = AuthenticatorImpl(engine!!)
     }
 
-    fun installActivityProvider(activityProvider: ActivityProvider) {
-        checkSetup()
-        engine?.installActivityProvider(activityProvider)
+    fun setup(config: AutomatedAuthConfig) {
+        debug = true
+        engine?.destroy()
+        val sharedPrefs = hostApplicationContext!!.getSharedPreferences("ticketauth", Context.MODE_PRIVATE)
+        engine = AutomatedAuthEngine(
+            sharedPrefs = sharedPrefs,
+            onNewAccessToken = config.onNewAccessTokenCallback,
+            onAuthResultCallback = config.onAuthResultCallback,
+            userConfig = config.userConfig
+        )
+        authenticator = AuthenticatorImpl(engine!!)
+    }
+
+    fun setHostActivity(activity: ComponentActivity) {
+        AutomatedAuthEngine.registerActivityLaunchers(activity)
+        AuthCodeEngine.registerActivityLaunchers(activity)
     }
 
     fun authenticator(): Authenticator {
@@ -42,25 +60,26 @@ object TicketAuth {
     val accessToken: String?
         get()  {
             checkInit()
-            return engine?.authState?.accessToken
+            return engine?.accessToken
         }
 
     val isAuthorized: Boolean
         get() {
             checkInit()
-            return engine!!.authState.isAuthorized
+            return engine!!.isAuthorized
         }
 
     private fun checkInit() {
         checkSetup()
-        engine?.let {
-            if(it.activityProvider == null) {
-                throw(RuntimeException("You must install an activity provider"))
-            }
+        if(!engine!!.hasRegisteredActivityLaunchers) {
+            throw(RuntimeException("You must call setHostActivity first"))
         }
     }
 
     private fun checkSetup() {
+        if(hostApplicationContext == null) {
+            throw(RuntimeException("TicketAuth has not been initialized properly, unable to get host application context"))
+        }
         if(engine == null) {
             throw(RuntimeException("TicketAuth has not been initialized. Please call setup() before calling any other functions"))
         }

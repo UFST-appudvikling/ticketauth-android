@@ -1,5 +1,10 @@
-package dk.ufst.ticketauth
+package dk.ufst.ticketauth.shared
 
+import dk.ufst.ticketauth.AuthCallback
+import dk.ufst.ticketauth.AuthEngine
+import dk.ufst.ticketauth.AuthResult
+import dk.ufst.ticketauth.Authenticator
+import dk.ufst.ticketauth.log
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
 

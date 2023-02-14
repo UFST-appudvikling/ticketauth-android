@@ -1,5 +1,7 @@
 package dk.ufst.ticketauth
 
+import dk.ufst.ticketauth.shared.AuthJob
+
 typealias OnNewAccessTokenCallback = ((String)->Unit)?
 typealias OnAuthResultCallback = ((AuthResult)->Unit)?
 
@@ -13,8 +15,10 @@ internal interface AuthEngine {
     fun runOnUiThread(block: ()->Unit)
     fun destroy()
 
+    val hasRegisteredActivityLaunchers: Boolean
     val jobs: MutableMap<Int, AuthJob>
 
     val roles: List<String>
     val accessToken: String?
+    val isAuthorized: Boolean
 }
