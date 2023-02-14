@@ -2,9 +2,9 @@
 
 package dk.ufst.ticketauth.automated
 
-import android.content.Context
 import dk.ufst.ticketauth.OnAuthResultCallback
 import dk.ufst.ticketauth.OnNewAccessTokenCallback
+import dk.ufst.ticketauth.hostApplicationContext
 import org.json.JSONObject
 import java.io.InputStream
 import java.nio.charset.Charset
@@ -41,8 +41,12 @@ class AutomatedAuthConfig private constructor(
     }
 
     companion object {
-        fun fromAssets(context: Context, filename: String): String {
-            val stream: InputStream = context.assets.open(filename)
+        /**
+         * Helper function to read the configuration from assets folder:
+         *  .userConfig(AutomatedAuthConfig.fromAssets("users.json"))
+         */
+        fun fromAssets(filename: String): String {
+            val stream: InputStream = hostApplicationContext!!.assets.open(filename)
             val size: Int = stream.available()
             val buffer = ByteArray(size)
             stream.read(buffer)

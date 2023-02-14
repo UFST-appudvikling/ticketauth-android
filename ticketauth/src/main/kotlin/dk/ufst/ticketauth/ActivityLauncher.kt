@@ -9,6 +9,11 @@ import java.lang.ref.WeakReference
 
 typealias ProcessActivityResult = (ActivityResult)->Unit
 
+/**
+ * This helper class purpose is register an activity launcher upon instantiation
+ * making it easy to launch at a later time with a custom callback.
+ * it also holds a weak reference to the host app activity, the AuthEngines can use
+ */
 internal class ActivityLauncher(activity: ComponentActivity) {
     private var startForResultLauncher: ActivityResultLauncher<Intent?>? = null
     private var callback: ProcessActivityResult? = null

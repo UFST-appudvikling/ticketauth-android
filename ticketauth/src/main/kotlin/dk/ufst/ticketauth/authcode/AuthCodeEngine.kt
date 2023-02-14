@@ -17,6 +17,7 @@ import dk.ufst.ticketauth.AuthResult
 import dk.ufst.ticketauth.OnAuthResultCallback
 import dk.ufst.ticketauth.OnNewAccessTokenCallback
 import dk.ufst.ticketauth.log
+import dk.ufst.ticketauth.shared.AuthJob
 import net.openid.appauth.AuthState
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
@@ -284,11 +285,14 @@ internal class AuthCodeEngine(
             log("Token Decoded Body: ${bodyJson.toString(4)}")
             roles.clear()
             if (bodyJson.has("realm_access")) {
-                val rolesJson = bodyJson.getJSONObject("realm_access").getJSONArray("roles")
-                rolesJson.let { ar ->
-                    for (i in 0 until ar.length()) {
-                        val role = ar.getString(i)
-                        roles.add(role)
+                val realmAccess = bodyJson.getJSONObject("realm_access")
+                if(realmAccess.has("roles")) {
+                    val rolesJson = realmAccess.getJSONArray("roles")
+                    rolesJson.let { ar ->
+                        for (i in 0 until ar.length()) {
+                            val role = ar.getString(i)
+                            roles.add(role)
+                        }
                     }
                 }
             }

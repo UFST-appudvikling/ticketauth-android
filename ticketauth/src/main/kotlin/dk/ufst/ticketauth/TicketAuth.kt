@@ -7,7 +7,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import dk.ufst.ticketauth.authcode.AuthCodeConfig
 import dk.ufst.ticketauth.authcode.AuthCodeEngine
-import dk.ufst.ticketauth.authcode.AuthenticatorImpl
+import dk.ufst.ticketauth.shared.AuthenticatorImpl
 import dk.ufst.ticketauth.automated.AutomatedAuthConfig
 import dk.ufst.ticketauth.automated.AutomatedAuthEngine
 import org.jetbrains.annotations.NonNls

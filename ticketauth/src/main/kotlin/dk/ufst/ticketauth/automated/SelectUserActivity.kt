@@ -1,5 +1,6 @@
 package dk.ufst.ticketauth.automated
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.content.res.Resources
@@ -30,6 +31,7 @@ class SelectUserActivity : Activity() {
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun buildContentView(users: JSONArray): View {
         val bgColor = Color.parseColor("#14143C")
         val textColor = Color.parseColor("#FFFFFF")

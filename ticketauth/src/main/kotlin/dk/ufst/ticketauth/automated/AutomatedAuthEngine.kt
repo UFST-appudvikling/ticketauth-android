@@ -1,6 +1,5 @@
 package dk.ufst.ticketauth.automated
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.content.SharedPreferences
@@ -14,28 +13,24 @@ import dk.ufst.ticketauth.AuthEngine
 import dk.ufst.ticketauth.AuthResult
 import dk.ufst.ticketauth.OnAuthResultCallback
 import dk.ufst.ticketauth.OnNewAccessTokenCallback
-import dk.ufst.ticketauth.authcode.AuthJob
+import dk.ufst.ticketauth.shared.AuthJob
 import dk.ufst.ticketauth.log
+import dk.ufst.ticketauth.shared.MicroHttp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
 import java.nio.charset.Charset
-import java.security.SecureRandom
-import java.security.cert.CertificateException
-import java.security.cert.X509Certificate
 import java.time.Instant
-import javax.net.ssl.HttpsURLConnection
-import javax.net.ssl.SSLContext
-import javax.net.ssl.SSLSocketFactory
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 
+/**
+ * Automated Login AuthEngine
+ * Supports getting a token from an endpoint by
+ * displaying a list of users taken from the userConfig parameter
+ * This token cannot be refreshed, upon expiration login will be attempted again
+ * Logout flow is also not supported, logout instead clears the internal authstate
+ */
 internal class AutomatedAuthEngine(
     private val sharedPrefs: SharedPreferences,
     private val onNewAccessToken: OnNewAccessTokenCallback,
@@ -72,68 +67,6 @@ internal class AutomatedAuthEngine(
         }
     }
 
-    private fun unsafeHttps(https: HttpsURLConnection) {
-        // Create a trust manager that does not validate certificate chains
-        val trustAllCerts: Array<TrustManager> = arrayOf(
-            @SuppressLint("CustomX509TrustManager")
-            object : X509TrustManager {
-                override fun checkClientTrusted(
-                    chain: Array<X509Certificate?>?,
-                    authType: String?
-                ) {
-                    // Having some code in this function truly suppresses the TrustAllX509TrustManager
-                    // warning. Using SuppressLint/Suppress only suppresses the warning
-                    // in Android Studio, but is still warned by the "gradlew lint" command.
-                    Any()
-                }
-
-                @Throws(CertificateException::class)
-                override fun checkServerTrusted(
-                    chain: Array<X509Certificate?>?,
-                    authType: String?
-                ) {
-                    // Having some code in this function truly suppresses the TrustAllX509TrustManager
-                    // warning. Using SuppressLint/Suppress only suppresses the warning
-                    // in Android Studio, but is still warned by the "gradlew lint" command.
-                    Any()
-                }
-
-                override fun getAcceptedIssuers(): Array<X509Certificate> {
-                    return arrayOf()
-                }
-            }
-        )
-
-        // Install the all-trusting trust manager
-        val sslContext: SSLContext = SSLContext.getInstance("SSL")
-        sslContext.init(null, trustAllCerts, SecureRandom())
-        // Create an ssl socket factory with our all-trusting manager
-        val sslSocketFactory: SSLSocketFactory = sslContext.socketFactory
-        https.sslSocketFactory = sslSocketFactory
-    }
-
-    private fun postJson(url: String, json: JSONObject): JSONObject {
-        val connection = (URL(url).openConnection() as HttpsURLConnection).apply {
-            unsafeHttps(this)
-            requestMethod = "POST"
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("Accept", "application/json")
-            doOutput = true
-        }
-        connection.outputStream.use { os ->
-            val input = json.toString().toByteArray(charset("utf-8"))
-            os.write(input, 0, input.size)
-        }
-        BufferedReader(InputStreamReader(connection.inputStream, "utf-8")).use { br ->
-            val response = StringBuilder()
-            var responseLine: String?
-            while (br.readLine().also { responseLine = it } != null) {
-                response.append(responseLine!!.trim())
-            }
-            return JSONObject(response.toString())
-        }
-    }
-
     override fun launchAuthIntent() {
         // launch user selector
         try {
@@ -153,7 +86,6 @@ internal class AutomatedAuthEngine(
             }
         } catch (t : Throwable) {
             log("Cannot launch select user activity due to exception: ${t.message}")
-            t.printStackTrace()
             wakeThreads(AuthResult.ERROR)
         }
     }
@@ -204,19 +136,18 @@ internal class AutomatedAuthEngine(
         }
         scope.launch {
             try {
-                log("Token request:\n${jsonParams.toString(2)}")
-                val jsonResponse = postJson(tokenUrl, jsonParams)
+                log("Sending token request:\n${jsonParams.toString(2)}")
+                val jsonResponse = MicroHttp.postJson(tokenUrl, jsonParams)
                 processTokenResponse(jsonResponse)
             } catch (t : Throwable) {
                 log("Token endpoint called failed with exception: ${t.message}")
                 wakeThreads(AuthResult.ERROR)
-                t.printStackTrace()
             }
         }
     }
 
     private fun processTokenResponse(tokenResponse: JSONObject) {
-        log("processTokenResponse ${tokenResponse.toString(4)}")
+        log("processTokenResponse ${tokenResponse.toString(2)}")
         decodeJWT(tokenResponse.getString("access_token"))
         log("Token expiration: ${authState?.tokenExpTime}")
         persistAuthState()
@@ -285,11 +216,14 @@ internal class AutomatedAuthEngine(
 
         roles.clear()
         if (bodyJson.has("realm_access")) {
-            val rolesJson = bodyJson.getJSONObject("realm_access").getJSONArray("roles")
-            rolesJson.let { ar ->
-                for (i in 0 until ar.length()) {
-                    val role = ar.getString(i)
-                    roles.add(role)
+            val realmAccess = bodyJson.getJSONObject("realm_access")
+            if(realmAccess.has("roles")) {
+                val rolesJson = realmAccess.getJSONArray("roles")
+                rolesJson.let { ar ->
+                    for (i in 0 until ar.length()) {
+                        val role = ar.getString(i)
+                        roles.add(role)
+                    }
                 }
             }
         }
@@ -297,7 +231,7 @@ internal class AutomatedAuthEngine(
 
     override fun needsTokenRefresh(): Boolean {
         authState?.let {
-            // 6 seconds grace period to safeguard against clock inaccuracies
+            // 6 seconds grace period to safeguard against clock inaccuracies (borrowed from AppAuth)
             val deadline = Instant.now().minusMillis(6000)
             return it.tokenExpTime.isBefore(deadline)
         }

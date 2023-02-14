@@ -1,7 +1,6 @@
 package dk.ufst.ticketauth
 
-import androidx.activity.ComponentActivity
-import dk.ufst.ticketauth.authcode.AuthJob
+import dk.ufst.ticketauth.shared.AuthJob
 
 typealias OnNewAccessTokenCallback = ((String)->Unit)?
 typealias OnAuthResultCallback = ((AuthResult)->Unit)?

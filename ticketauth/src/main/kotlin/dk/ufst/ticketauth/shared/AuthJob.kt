@@ -1,4 +1,4 @@
-package dk.ufst.ticketauth.authcode
+package dk.ufst.ticketauth.shared
 
 import dk.ufst.ticketauth.AuthCallback
 import dk.ufst.ticketauth.AuthResult
