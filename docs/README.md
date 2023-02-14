@@ -12,31 +12,39 @@ Where $VERSION is a release, tag or branch snap. Check [jitpack.io](https://jitp
 for all available options.
 
 ## Setup
+You can call TicketAuth.setup() from anywhere. The library will reconfigure itself to the desired
+configuration.
 
-First setup the library. Call this from your activity's onCreate method (fx):
+### Host Application Activity Setup
+However the host app must inform TicketAuth which Activity to use for launching
+browser tabs and utility activities. Call TicketAuth.setHostActivity in the OnCreate method
+of your app's MainActivity (or whatever activity you wish to launch TicketAuth related intents from).
+Upon calling TicketAuth.setHostActivity the library will update activity launchers, but it is the
+apps responsebility to make sure it gets called after configuration changes etc (that recreate the host apps activity).
+
+In your apps MainActivity onCreate method add this:
+```
+    TicketAuth.setHostActivity(this)
+```
+
+TicketAuth.setHostActivity can be called before or after TicketAuth.setup() but if the library
+doesn't have a valid activity context when needed, an exception will be thrown.
+
+### Auth Code
+Setup the library for Auth Code which is OAuth/OpenConnect Code Authorization flow:
 ```
 TicketAuth.setup(
-    TicketAuthConfig.Builder()
-        .sharedPrefs(getSharedPreferences("appsettings", Context.MODE_PRIVATE))
-        .context(this)
+    AuthCodeConfig.Builder()
         .dcsBaseUrl("https://baseurl")
         .clientId("clientId")
         .scopes("scope1 scope2 scope3")
         .debug(true)
         .build()
 )
-
-TicketAuth.installActivityProvider { this }
 ```
+Auth state is automatically persisted between application restarts.
 
-Auth state is automatically persisted (which is why setup takes a SharedPreferences object).
-
-The installActivityProvider method uses the provided activity to register "startActivityForResult" handlers,
-which the library use to communicate with the system browser.
-
-### Optional parameters
-
-#### redirectUri 
+#### redirectUri
 The library generates a default redirectUri which is packagename + ".ticketauth" if you for one
 reason or another needs to manually specify a redirectUri, call this function:
 
@@ -63,6 +71,32 @@ If you specify a custom redirectUri you need to define a manifest override as we
 
 __If you't don specify a custom redirectUri you don't have to add anything to your apps manifest
 file.__
+
+### Automated Auth
+Setup the library for Automated login in which the library reads and present users from
+a json configuration file. This file contains the necessary data to request an access token
+from a third party endpoint. This feature is meant to ease testing.
+
+___Automated login doesn't support token refresh and will default to relogin whenever the token expires.___
+
+```
+TicketAuth.setup(
+    AutomatedAuthConfig.Builder()
+        .userConfig(AutomatedAuthConfig.fromAssets("users.json"))
+        .build()
+)
+```
+User config is supplied in the form of a String containing json. You can use the helper function
+fromAssets() (demonstrated above) for easy initialization in case you deploy the file with app.
+
+The json configuration file is parsed and will throw an exception upon syntax errors as well as missing
+fields etc.
+
+Documentation for the configuration file is to be found elsewhere.
+
+### Optional parameters
+These parameters applies to all Auth Engines and can be added to TicketAuth.setup() via
+the individual Auth Engines config builders (see above).
 
 #### onNewAccessToken
 If you need to get a callback whenever the library obtains a new access token, either through
@@ -155,6 +189,8 @@ If you want to run the oauth logout flow call:
 ```
 authenticator.logout()
 ```
+
+___When using Automated Auth no actual login endpoint is called. Instead local auth state is invalidated.___ 
 
 #### Get notified when logout flow is complete
 It is possible to get called back whenever the logout flow is completed.
