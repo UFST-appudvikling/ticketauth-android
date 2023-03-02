@@ -57,15 +57,14 @@ If you specify a custom redirectUri you need to define a manifest override as we
 
 ```xml
 <activity
-        android:name="net.openid.appauth.RedirectUriReceiverActivity"
+        android:name="dk.ufst.ticketauth.authcode.RedirectUriReceiverActivity"
         android:exported="true"
-        tools:node="replace"
-        tools:ignore="MissingClass">
+        tools:node="replace">
         <intent-filter>
             <action android:name="android.intent.action.VIEW"/>
             <category android:name="android.intent.category.DEFAULT"/>
             <category android:name="android.intent.category.BROWSABLE"/>
-            <data android:scheme="myapp://"/>
+            <data android:scheme="myapp"/>
         </intent-filter>
 </activity>
 ```
