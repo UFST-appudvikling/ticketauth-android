@@ -1,7 +1,7 @@
-# TicketAuth Android 1.1.0
+# TicketAuth Android 1.1.1
 
 Small android library that simplifies OAuth Code flow (web logins).
-This describes release 1.1.0, for earlier versions of the documentation, consult the relevant release branches.
+This describes release 1.1.1, for earlier versions of the documentation, consult the relevant release branches.
 
 # Usage
 
