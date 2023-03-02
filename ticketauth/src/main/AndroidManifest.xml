@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="dk.ufst.ticketauth">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="dk.ufst.ticketauth">
     <uses-permission android:name="android.permission.INTERNET" />
     <application>
         <activity
-            android:name="net.openid.appauth.RedirectUriReceiverActivity"
-            android:exported="true"
-            tools:node="replace">
+            android:name=".authcode.BrowserManagementActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboard|keyboardHidden"
+            android:launchMode="singleTask"
+            android:exported="false"
+            />
+        <activity
+            android:noHistory="true"
+            android:name=".authcode.RedirectUriReceiverActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>

@@ -22,7 +22,6 @@ object TicketAuth {
         engine?.destroy()
         val sharedPrefs = hostApplicationContext!!.getSharedPreferences("ticketauth", Context.MODE_PRIVATE)
         engine = AuthCodeEngine(
-            context = hostApplicationContext!!,
             sharedPrefs = sharedPrefs,
             dcsBaseUrl = config.dcsBaseUrl,
             clientId = config.clientId,

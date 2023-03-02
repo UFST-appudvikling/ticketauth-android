@@ -6,6 +6,7 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.URL
+import java.net.URLEncoder
 import java.security.SecureRandom
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
@@ -84,7 +85,7 @@ internal object MicroHttp {
             os.write(input, 0, input.size)
         }
         val responseCode = connection.responseCode
-        log("Token endpoint Response: $responseCode: ${connection.responseMessage}")
+        log("Endpoint Response: $responseCode: ${connection.responseMessage}")
         val success = responseCode in 200..399
         val stream = if(success) connection.inputStream else connection.errorStream
         BufferedReader(InputStreamReader(stream, "utf-8")).use { br ->
@@ -100,5 +101,50 @@ internal object MicroHttp {
                 throw(RuntimeException("Token endpoint returned: $responseCode"))
             }
         }
+    }
+
+    fun postFormUrlEncoded(url: String, params: Map<String, String>): JSONObject {
+        val connection: HttpsURLConnection = (URL(url).openConnection() as HttpsURLConnection).apply {
+            if(unsafe) {
+                unsafeHttps(this)
+            }
+            requestMethod = "POST"
+            setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            setRequestProperty("Accept", "application/json")
+            doOutput = true
+        }
+        connection.outputStream.use { os ->
+            val input = getFormUrlEncoded(params).toByteArray(charset("utf-8"))
+            os.write(input, 0, input.size)
+        }
+        val responseCode = connection.responseCode
+        log("Endpoint Response: $responseCode: ${connection.responseMessage}")
+        val success = responseCode in 200..399
+        val stream = if(success) connection.inputStream else connection.errorStream
+        BufferedReader(InputStreamReader(stream, "utf-8")).use { br ->
+            val response = StringBuilder()
+            var responseLine: String?
+            while (br.readLine().also { responseLine = it } != null) {
+                response.append(responseLine!!.trim())
+            }
+            if(success) {
+                return JSONObject(response.toString())
+            } else {
+                log("Received error body: $response")
+                throw(RuntimeException("Token endpoint returned: $responseCode"))
+            }
+        }
+    }
+
+    private fun getFormUrlEncoded(params: Map<String, String>): String {
+        val result = StringBuilder()
+        var first = true
+        for(entry in params) {
+            if (first) first = false else result.append("&")
+            result.append(URLEncoder.encode(entry.key, "UTF-8"))
+            result.append("=")
+            result.append(URLEncoder.encode(entry.value, "UTF-8"))
+        }
+        return result.toString()
     }
 }

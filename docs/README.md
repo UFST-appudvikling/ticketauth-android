@@ -21,7 +21,7 @@ However the host app must inform TicketAuth which Activity to use for launching
 browser tabs and utility activities. Call TicketAuth.setHostActivity in the OnCreate method
 of your app's MainActivity (or whatever activity you wish to launch TicketAuth related intents from).
 Upon calling TicketAuth.setHostActivity the library will update activity launchers, but it is the
-apps responsebility to make sure it gets called after configuration changes etc (that recreate the host apps activity).
+apps responsibility to make sure it gets called after configuration changes etc (that recreate the host apps activity).
 
 In your apps MainActivity onCreate method add this:
 ```kotlin 
@@ -46,7 +46,7 @@ TicketAuth.setup(
 Auth state is automatically persisted between application restarts.
 
 #### redirectUri
-The library generates a default redirectUri which is packagename + ".ticketauth" if you for one
+The library generates a default redirectUri which is package name + ".ticketauth" if you for one
 reason or another needs to manually specify a redirectUri, call this function:
 
 ```kotlin
@@ -70,7 +70,7 @@ If you specify a custom redirectUri you need to define a manifest override as we
 </activity>
 ```
 
-__If you't don specify a custom redirectUri you don't have to add anything to your apps manifest
+__If you don't specify a custom redirectUri you don't have to add anything to your apps manifest
 file.__
 
 ### Automated Auth
@@ -78,7 +78,7 @@ Setup the library for Automated login in which the library reads and present use
 a json configuration file. This file contains the necessary data to request an access token
 from a third party endpoint. This feature is meant to ease testing.
 
-___Automated login doesn't support token refresh and will default to relogin whenever the token expires.___
+___Automated login doesn't support token refresh and will default to re-login whenever the token expires.___
 
 ```kotlin
 TicketAuth.setup(
@@ -101,7 +101,7 @@ the individual Auth Engines config builders (see above).
 
 #### onNewAccessToken
 If you need to get a callback whenever the library obtains a new access token, either through
-token refresh or relogin, call this function:
+token refresh or re-login, call this function:
 
 ```kotlin
     .onNewAccessToken { token ->
@@ -163,7 +163,7 @@ if(!TicketAuth.isAuthorized) {
 
 #### Optional callback
 It is possible to pass a callback function to login inorder to notified whenever the login is
-complete. This is useful for detecting if the user cancelled the webflow (by closing the browser)
+complete. This is useful for detecting if the user cancelled the web flow (by closing the browser)
 etc.
 
 ```kotlin

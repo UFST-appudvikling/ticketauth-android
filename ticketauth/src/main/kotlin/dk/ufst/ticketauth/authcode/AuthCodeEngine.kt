@@ -1,14 +1,12 @@
 package dk.ufst.ticketauth.authcode
 
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResult
 import dk.ufst.ticketauth.ActivityLauncher
@@ -18,22 +16,27 @@ import dk.ufst.ticketauth.OnAuthResultCallback
 import dk.ufst.ticketauth.OnNewAccessTokenCallback
 import dk.ufst.ticketauth.log
 import dk.ufst.ticketauth.shared.AuthJob
-import net.openid.appauth.AuthState
-import net.openid.appauth.AuthorizationException
-import net.openid.appauth.AuthorizationRequest
-import net.openid.appauth.AuthorizationResponse
-import net.openid.appauth.AuthorizationService
-import net.openid.appauth.AuthorizationServiceConfiguration
-import net.openid.appauth.EndSessionRequest
-import net.openid.appauth.EndSessionResponse
-import net.openid.appauth.ResponseTypeValues
+import dk.ufst.ticketauth.shared.MicroHttp
+import dk.ufst.ticketauth.shared.Util
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.nio.charset.Charset
-import java.util.concurrent.locks.Condition
-import java.util.concurrent.locks.ReentrantLock
+import java.time.Instant
 
+/**
+ * Micro implementation of OAuth 2.0 Authorization Code Flow
+ *
+ * Specifications used:
+ * https://www.rfc-editor.org/rfc/rfc6749
+ * https://openid.net/specs/openid-connect-core-1_0.html
+ * https://openid.net/specs/openid-connect-rpinitiated-1_0.html (logout endpoint)
+ *
+ * TODO check that the state we generate and send at the start of the flow is the same returned by the server as per the standard
+ */
 internal class AuthCodeEngine(
-    context: Context,
     private val sharedPrefs: SharedPreferences,
     private val dcsBaseUrl: String,
     private val clientId: String,
@@ -42,161 +45,248 @@ internal class AuthCodeEngine(
     private val onNewAccessToken: OnNewAccessTokenCallback,
     private val onAuthResultCallback: OnAuthResultCallback,
 ): AuthEngine {
-    private var authService: AuthorizationService = AuthorizationService(context)
-    private var serviceConfig : AuthorizationServiceConfiguration
-    private var authState: AuthState = AuthState()
-
+    data class AuthState (
+        var accessToken: String,
+        var refreshToken: String,
+        var idToken: String,
+        var accessTokenExpTime: Instant = Instant.EPOCH,
+        var refreshTokenExpTime: Instant = Instant.EPOCH,
+    )
     override val roles = mutableListOf<String>()
-
-    private val refreshLock = ReentrantLock()
-    private val refreshCondition: Condition = refreshLock.newCondition()
-
-    override var onWakeThreads: ()->Unit = {}
-    
+    private var authState: AuthState? = null
     override val jobs: MutableMap<Int, AuthJob> = mutableMapOf()
-
     override val accessToken: String?
-        get() = authState.accessToken
-
-    override val isAuthorized: Boolean
-        get() = authState.isAuthorized
-    
-    override fun needsTokenRefresh(): Boolean = authState.needsTokenRefresh
+        get() = authState?.accessToken
+    private val scope = CoroutineScope(Dispatchers.Default)
+    private val redirectUriParser = RedirectUriParser()
 
     init {
-        serviceConfig = buildServiceConfig()
         // deserialize authstate if we have one, otherwise start with a fresh
-        sharedPrefs.getString("authState", null)?.let {
-            log("Loading existing auth state")
-            authState = AuthState.jsonDeserialize(it)
-            decodeJWT()
-        } ?: run {
+        if(sharedPrefs.contains(ACCESS_TOKEN) && sharedPrefs.contains(REFRESH_TOKEN) && sharedPrefs.contains(
+                ID_TOKEN)) {
+            authState = AuthState(
+                accessToken = sharedPrefs.getString(ACCESS_TOKEN, null)!!,
+                refreshToken = sharedPrefs.getString(REFRESH_TOKEN, null)!!,
+                idToken = sharedPrefs.getString(ID_TOKEN, null)!!,
+            ).also {
+                decodeAccessToken(it)
+                decodeRefreshToken(it)
+            }
+        } else {
             log("Creating a new auth state")
         }
-        //log("packageName: ${context.packageName}")
     }
 
-    private fun buildServiceConfig() =
-        AuthorizationServiceConfiguration(
-            Uri.parse("${dcsBaseUrl}$AUTH_PATH"),  // authorization endpoint
-            Uri.parse("${dcsBaseUrl}$TOKEN_PATH"), // token endpoint
-            null,
-            Uri.parse("${dcsBaseUrl}$LOGOUT_PATH")
-        )
-
     override fun launchAuthIntent() {
-        log("Launching auth intent")
-        // TODO this should be removed but properly tested. since config is created in init
-        serviceConfig = buildServiceConfig()
-        val authRequest = AuthorizationRequest.Builder(
-            serviceConfig, clientId,
-            ResponseTypeValues.CODE, Uri.parse(redirectUri)
-        )
-            .setScope(scopes)
+        val authUri = Uri.parse("${dcsBaseUrl}${AUTH_PATH}").buildUpon()
+            .appendQueryParameter(RESPONSE_TYPE, CODE)
+            .appendQueryParameter(CLIENT_ID, clientId)
+            .appendQueryParameter(REDIRECT_URI, redirectUri)
+            .appendQueryParameter(SCOPE, scopes)
+            .appendQueryParameter(STATE, Util.generateRandomState())
+            .appendQueryParameter(NONCE, Util.generateRandomState())
             .build()
 
-        val authIntent: Intent = authService.getAuthorizationRequestIntent(authRequest)
-        
-        try {
-            authActivityLauncher!!.launch(authIntent) {
-                processAuthResult(it)
+        log("authUri: $authUri")
+
+        val intent = Intent(authActivityLauncher!!.activity(), BrowserManagementActivity::class.java).apply {
+            data = authUri
+        }
+        authActivityLauncher!!.launch(intent, ::onAuthIntentResult)
+    }
+
+    private fun onAuthIntentResult(result: ActivityResult) {
+        log("onAuthIntentResult $result")
+        if(result.resultCode == Activity.RESULT_CANCELED) {
+            if(result.data != null) {
+                val error = AuthorizationError.fromIntent(result.data!!)
+                if(error.error == BrowserManagementActivity.USER_CANCEL) {
+                    log("User cancelled authorization flow")
+                    wakeThreads(AuthResult.CANCELLED_FLOW)
+                } else {
+                    log("Received error authorization flow: $error")
+                    wakeThreads(AuthResult.ERROR)
+                }
+                return
             }
+        } else if(result.resultCode == Activity.RESULT_OK) {
+            val responseUri = result.data?.data
+            if(responseUri != null) {
+                scope.launch {
+                    val parsedResult = redirectUriParser.parse(responseUri)
+                    log("responseUri parsed result: $parsedResult")
+                    when(parsedResult) {
+                        is RedirectUriParser.ParsedResult.Error -> {
+                            wakeThreads(AuthResult.ERROR)
+                        }
+                        is RedirectUriParser.ParsedResult.Success -> exchangeCodeForToken(parsedResult)
+                    }
+                }
+                return
+            }
+        }
+        wakeThreads(AuthResult.ERROR)
+    }
+
+    private fun exchangeCodeForToken(result: RedirectUriParser.ParsedResult.Success) {
+        val params = mapOf(
+            GRANT_TYPE to AUTHORIZATION_CODE,
+            CODE to result.code,
+            CLIENT_ID to clientId,
+            REDIRECT_URI to redirectUri,
+        )
+        try {
+            log("Sending authorization request:\n${params}")
+            val jsonResponse = MicroHttp.postFormUrlEncoded("${dcsBaseUrl}${TOKEN_PATH}", params)
+            processTokenResponse(jsonResponse)
+            wakeThreads(AuthResult.SUCCESS)
         } catch (t : Throwable) {
-            log("Cannot launch auth intent due to exception: ${t.message}")
+            log("Token endpoint called failed with exception: ${t.message}")
+            t.printStackTrace()
             wakeThreads(AuthResult.ERROR)
         }
+    }
+
+    private fun processTokenResponse(tokenResponse: JSONObject) {
+        log("processTokenResponse ${tokenResponse.toString(2)}")
+        val accessToken = tokenResponse.getString("access_token")
+        val refreshToken = tokenResponse.getString("refresh_token")
+        val idToken = tokenResponse.getString("id_token")
+        authState = AuthState(
+            accessToken = accessToken,
+            refreshToken = refreshToken,
+            idToken = idToken
+        ).also {
+            decodeAccessToken(it)
+            decodeRefreshToken(it)
+        }
+
+        log("AccessToken expiration: ${authState?.accessTokenExpTime}")
+        log("RefreshToken expiration: ${authState?.refreshTokenExpTime}")
+        persistAuthState()
+        onAccessToken()
+    }
+
+    private fun onAccessToken() {
+        runOnUiThread {
+            onNewAccessToken?.invoke(authState!!.accessToken)
+        }
+    }
+
+    override fun performBlockingTokenRefresh(): Boolean {
+        authState?.let { state ->
+            // check if refresh token have expired, if so give up
+            val deadline = Instant.now().minusMillis(6000)
+            if(state.refreshTokenExpTime.isBefore(deadline)) {
+                return false
+            }
+            return refreshAccessToken(state)
+        }
+        return false
+    }
+
+    private fun refreshAccessToken(state: AuthState): Boolean {
+        val params = mapOf(
+            CLIENT_ID to clientId,
+            GRANT_TYPE to REFRESH_TOKEN,
+            REFRESH_TOKEN to state.refreshToken,
+            SCOPE to scopes,
+        )
+        try {
+            log("Sending token refresh request:\n${params}")
+            val jsonResponse = MicroHttp.postFormUrlEncoded("${dcsBaseUrl}${TOKEN_PATH}", params)
+            processTokenResponse(jsonResponse)
+            return true
+        } catch (t : Throwable) {
+            log("Token endpoint called failed with exception: ${t.message}")
+        }
+        return false
     }
 
     override fun launchLogoutIntent() {
-        log("Launching logout intent")
-        authState.idToken?.let {
-            val endSessionRequest = EndSessionRequest.Builder(serviceConfig)
-                .setIdTokenHint(it)
-                .setPostLogoutRedirectUri(Uri.parse(redirectUri))
-                .build()
-            val endSessionIntent = authService.getEndSessionRequestIntent(endSessionRequest)
-            try {
-                logoutActivityLauncher!!.launch(endSessionIntent) { result ->
-                    processLogoutResult(result)
-                }
-            } catch (t : Throwable) {
-                log("Cannot launch logout intent due to exception: ${t.message}")
-                wakeThreads(AuthResult.ERROR)
-            }
-        } ?: run {
-            log("Cannot launch logout intent because we have no idToken")
+        if(authState == null) {
+            log("Cannot call logout endpoint with no id token")
             wakeThreads(AuthResult.ERROR)
-        }
-    }
-
-
-    private fun processAuthResult(result: ActivityResult) {
-        log("processAuthResult $result")
-        if(result.resultCode == Activity.RESULT_CANCELED) {
-            log("Auth flow was cancelled by user")
-            wakeThreads(AuthResult.CANCELLED_FLOW)
-        } else {
-            result.data?.let { data ->
-                val resp = AuthorizationResponse.fromIntent(data)
-                val ex = AuthorizationException.fromIntent(data)
-                authState.update(resp, ex)
-                persistAuthState()
-                if (resp != null) {
-                    // authorization completed
-                    performTokenRequest(resp)
-                    log("Got auth code: ${resp.authorizationCode}")
-                } else {
-                    log("Auth failed: $ex")
-                    // user cancelled login flow (in flow cancel option), wake threads so they can return error
-                    wakeThreads(AuthResult.ERROR)
-                }
-            } ?: run {
-                log("ActivityResult yielded no data (intent) to process")
-                wakeThreads(AuthResult.ERROR)
-            }
-        }
-    }
-    
-    private fun processLogoutResult(result: ActivityResult) {
-        log("processLogoutResult $result")
-        if(result.resultCode == Activity.RESULT_CANCELED) {
-            wakeThreads(AuthResult.CANCELLED_FLOW)
             return
         }
-        result.data?.let { data ->
-            val resp = EndSessionResponse.fromIntent(data)
-            val ex = AuthorizationException.fromIntent(data)
-            if (resp != null) {
-                log("Completed logout")
-                clear()
-                wakeThreads(AuthResult.SUCCESS)
-            } else {
-                wakeThreads(AuthResult.ERROR)
-                log("Logout failed: $ex")
-            }
-        } ?: run {
-            wakeThreads(AuthResult.ERROR)
-            log("ActivityResult yielded no data (intent) to process")
-        }
+        val logoutUri = Uri.parse("${dcsBaseUrl}${LOGOUT_PATH}").buildUpon()
+            .appendQueryParameter(CLIENT_ID, clientId)
+            .appendQueryParameter(ID_TOKEN_HINT, authState!!.idToken)
+            .appendQueryParameter(POST_LOGOUT_REDIRECT_URI, redirectUri)
+            .appendQueryParameter(STATE, Util.generateRandomState())
+            .build()
 
+        log("logoutUri: $logoutUri")
+
+        val intent = Intent(logoutActivityLauncher!!.activity(), BrowserManagementActivity::class.java).apply {
+            data = logoutUri
+        }
+        logoutActivityLauncher!!.launch(intent, ::onLogoutIntentResult)
     }
 
-    private fun performTokenRequest(authResp: AuthorizationResponse) {
-        log("performTokenRequest")
-        authService.performTokenRequest(authResp.createTokenExchangeRequest()) { resp, ex ->
-            authState.update(resp, ex)
-            persistAuthState()
-            if (resp != null) {
-                // exchange succeeded
-                log("Got access token: ${resp.accessToken}")
-                decodeJWT()
-                onAccessToken()
-                wakeThreads(AuthResult.SUCCESS)
-            } else {
-                log("Token exchange failed: $ex")
-                wakeThreads(AuthResult.ERROR)
+    private fun onLogoutIntentResult(result: ActivityResult) {
+        log("onLogoutIntentResult $result")
+        if(result.resultCode == Activity.RESULT_CANCELED) {
+            if(result.data != null) {
+                val error = AuthorizationError.fromIntent(result.data!!)
+                if(error.error == BrowserManagementActivity.USER_CANCEL) {
+                    log("User cancelled authorization flow")
+                    wakeThreads(AuthResult.CANCELLED_FLOW)
+                } else {
+                    log("Received error authorization flow: $error")
+                    wakeThreads(AuthResult.ERROR)
+                }
+                return
+            }
+        } else if(result.resultCode == Activity.RESULT_OK) {
+            val responseUri = result.data?.data
+            if(responseUri != null) {
+                if(responseUri.toString().startsWith(redirectUri)) {
+                    clear()
+                    roles.clear()
+                    wakeThreads(AuthResult.SUCCESS)
+                } else {
+                    log("wrong uri, expected: $redirectUri")
+                    wakeThreads(AuthResult.ERROR)
+                }
+                return
             }
         }
+        wakeThreads(AuthResult.ERROR)
+    }
+
+    override fun needsTokenRefresh(): Boolean {
+        authState?.let {
+            return hasExpired(it.accessTokenExpTime)
+        }
+        return true
+    }
+
+    override val isAuthorized: Boolean
+        get() {
+            authState?.let { state ->
+                // check if refresh token have expired
+                if(hasExpired(state.refreshTokenExpTime)) {
+                    return false
+                }
+                return true
+            }
+            return false
+        }
+
+    override fun clear() {
+        authState = null
+        persistAuthState()
+    }
+
+    override var onWakeThreads: ()->Unit = {}
+
+    override fun runOnUiThread(block: () -> Unit) {
+        Handler(Looper.getMainLooper()).post(block)
+    }
+
+    override fun destroy() {
+        scope.cancel()
     }
 
     private fun wakeThreads(result: AuthResult) {
@@ -219,88 +309,65 @@ internal class AuthCodeEngine(
         }
     }
 
-    /**
-    Use a reentrant lock to wait for the callback from createTokenRefreshRequest blocking
-    the function from returning until completion. This is necessary because that appauth
-    library doesn't provide a synchronous way of making the call
-     */
-    override fun performBlockingTokenRefresh(): Boolean {
-        var success = false
-        refreshLock.lock()
-        try {
-            val req = authState.createTokenRefreshRequest()
-            authService.performTokenRequest(req) { resp, ex ->
-                authState.update(resp, ex)
-                persistAuthState()
-                if (resp != null) {
-                    success = true
-                    decodeJWT()
-                    onAccessToken()
-                } else {
-                    log("Token refresh exception $ex")
-                }
-                refreshLock.lock()
-                try {
-                    refreshCondition.signal()
-                } finally {
-                    refreshLock.unlock()
-                }
-            }
-            refreshCondition.await()
-        } catch (t: Throwable) {
-            Log.e("TicketAuth", "Token refresh failed, no refresh token", t)
-            return false
-        } finally {
-            refreshLock.unlock()
-        }
-        return success
+    private fun hasExpired(i: Instant): Boolean {
+        // 6 seconds grace period to safeguard against clock inaccuracies (borrowed from AppAuth)
+        val deadline = Instant.now().minusMillis(GRACE_PERIOD)
+        return i.isBefore(deadline)
     }
 
-    private fun persistAuthState() {
-        sharedPrefs.edit().putString("authState", authState.jsonSerializeString()).apply()
-    }
+    private fun decodeAccessToken(state: AuthState) {
+        val split = state.accessToken.split(".")
+        val header = String(Base64.decode(split[0], Base64.URL_SAFE), Charset.forName("UTF-8"))
+        val body = String(Base64.decode(split[1], Base64.URL_SAFE), Charset.forName("UTF-8"))
+        val headerJson = JSONObject(header)
+        val bodyJson = JSONObject(body)
 
-    private fun onAccessToken() {
-        onNewAccessToken?.invoke(authState.accessToken!!)
-    }
+        log("AccessToken Decoded Header: ${headerJson.toString(4)}")
+        log("AccessToken Decoded Body: ${bodyJson.toString(4)}")
+        val exp : Long = bodyJson.getLong("exp")
+        state.accessTokenExpTime = Instant.ofEpochSecond(exp)
 
-    override fun runOnUiThread(block: ()->Unit) {
-        Handler(Looper.getMainLooper()).post(block)
-    }
-
-    override fun clear() {
-        authState = AuthState()
-        persistAuthState()
-    }
-
-    private fun decodeJWT() {
-        authState.accessToken?.let { accessToken ->
-            val split = accessToken.split(".")
-            val header = String(Base64.decode(split[0], Base64.URL_SAFE), Charset.forName("UTF-8"))
-            val body = String(Base64.decode(split[1], Base64.URL_SAFE), Charset.forName("UTF-8"))
-            val headerJson = JSONObject(header)
-            val bodyJson = JSONObject(body)
-
-            log("Token Decoded Header: ${headerJson.toString(4)}")
-            log("Token Decoded Body: ${bodyJson.toString(4)}")
-            roles.clear()
-            if (bodyJson.has("realm_access")) {
-                val realmAccess = bodyJson.getJSONObject("realm_access")
-                if(realmAccess.has("roles")) {
-                    val rolesJson = realmAccess.getJSONArray("roles")
-                    rolesJson.let { ar ->
-                        for (i in 0 until ar.length()) {
-                            val role = ar.getString(i)
-                            roles.add(role)
-                        }
+        roles.clear()
+        if (bodyJson.has(REALM_ACCESS)) {
+            val realmAccess = bodyJson.getJSONObject(REALM_ACCESS)
+            if(realmAccess.has(ROLES)) {
+                val rolesJson = realmAccess.getJSONArray(ROLES)
+                rolesJson.let { ar ->
+                    for (i in 0 until ar.length()) {
+                        val role = ar.getString(i)
+                        roles.add(role)
                     }
                 }
             }
         }
     }
 
-    override fun destroy() {
-        authService.dispose()
+    private fun decodeRefreshToken(state: AuthState) {
+        val split = state.refreshToken.split(".")
+        val header = String(Base64.decode(split[0], Base64.URL_SAFE), Charset.forName("UTF-8"))
+        val body = String(Base64.decode(split[1], Base64.URL_SAFE), Charset.forName("UTF-8"))
+        val headerJson = JSONObject(header)
+        val bodyJson = JSONObject(body)
+        log("RefreshToken Decoded Header: ${headerJson.toString(4)}")
+        log("RefreshToken Decoded Body: ${bodyJson.toString(4)}")
+        val exp : Long = bodyJson.getLong(EXP)
+        state.refreshTokenExpTime = Instant.ofEpochSecond(exp)
+    }
+
+    private fun persistAuthState() {
+        authState?.let {
+            sharedPrefs.edit()
+                .putString(ACCESS_TOKEN, it.accessToken)
+                .putString(REFRESH_TOKEN, it.refreshToken)
+                .putString(ID_TOKEN, it.idToken)
+                .apply()
+        } ?: run {
+            sharedPrefs.edit()
+                .remove(ACCESS_TOKEN)
+                .remove(REFRESH_TOKEN)
+                .remove(ID_TOKEN)
+                .apply()
+        }
     }
 
     override val hasRegisteredActivityLaunchers: Boolean
@@ -310,6 +377,24 @@ internal class AuthCodeEngine(
         private const val AUTH_PATH: String = "/protocol/openid-connect/auth"
         private const val TOKEN_PATH: String = "/protocol/openid-connect/token"
         private const val LOGOUT_PATH: String = "/protocol/openid-connect/logout"
+        private const val AUTHORIZATION_CODE = "authorization_code"
+        private const val RESPONSE_TYPE = "response_type"
+        private const val CODE = "code"
+        private const val CLIENT_ID = "client_id"
+        private const val REDIRECT_URI = "redirect_uri"
+        private const val SCOPE = "scope"
+        private const val STATE = "state"
+        private const val NONCE = "nonce"
+        private const val GRANT_TYPE = "grant_type"
+        private const val ID_TOKEN_HINT = "id_token_hint"
+        private const val POST_LOGOUT_REDIRECT_URI = "post_logout_redirect_uri"
+        private const val GRACE_PERIOD = 6000L
+        private const val ACCESS_TOKEN = "access_token"
+        private const val REFRESH_TOKEN = "refresh_token"
+        private const val ID_TOKEN = "id_token"
+        private const val ROLES = "roles"
+        private const val REALM_ACCESS = "realm_access"
+        private const val EXP = "exp"
 
         private var authActivityLauncher: ActivityLauncher? = null
         private var logoutActivityLauncher: ActivityLauncher? = null

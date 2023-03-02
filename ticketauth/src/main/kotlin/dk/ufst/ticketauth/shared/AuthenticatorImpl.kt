@@ -17,7 +17,6 @@ internal class AuthenticatorImpl(
         engine.onWakeThreads = {
             wakeThreads()
         }
-
     }
 
     private var latch: AtomicReference<CountDownLatch> = AtomicReference()
@@ -41,7 +40,6 @@ internal class AuthenticatorImpl(
             job.callback = callback
             engine.runOnUiThread {
                 engine.launchLogoutIntent()
-                engine.clear()
             }
         } else {
             log("Cannot logout while login or token refresh is in progress")
