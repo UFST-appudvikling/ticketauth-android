@@ -25,6 +25,12 @@ class RedirectUriParser {
             val code = uri.getQueryParameter("code")
             if(state != null && code != null) {
                 return ParsedResult.Success(code, state)
+            } else {
+                val error = uri.getQueryParameter("error")
+                val errorDescription = uri.getQueryParameter("error_description")
+                if(error != null && errorDescription != null) {
+                    return ParsedResult.Error(error, errorDescription)
+                }
             }
         } else {
             uri.fragment?.let { fragment ->
