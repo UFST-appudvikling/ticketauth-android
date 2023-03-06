@@ -13,7 +13,8 @@ class AuthCodeConfig private constructor(
     val scopes: String,
     val redirectUri: String,
     val onNewAccessTokenCallback: OnNewAccessTokenCallback,
-    val onAuthResultCallback: OnAuthResultCallback
+    val onAuthResultCallback: OnAuthResultCallback,
+    val usePKSE: Boolean
 ) {
     data class Builder(
         private var debug: Boolean = false,
@@ -23,6 +24,7 @@ class AuthCodeConfig private constructor(
         private var redirectUri: String? = null,
         private var onNewAccessTokenCallback: OnNewAccessTokenCallback = null,
         private var onAuthResultCallback: OnAuthResultCallback = null,
+        private var usePKSE: Boolean = true
     ) {
         fun debug(debug: Boolean) = apply { this.debug = debug }
         fun dcsBaseUrl(url: String) = apply { this.dcsBaseUrl = url }
@@ -31,6 +33,7 @@ class AuthCodeConfig private constructor(
         fun redirectUri(uri: String) = apply { this.redirectUri = uri }
         fun onNewAccessToken(callback: OnNewAccessTokenCallback) = apply { this.onNewAccessTokenCallback = callback}
         fun onAuthResult(callback: OnAuthResultCallback) = apply { this.onAuthResultCallback = callback}
+        fun usePKSE(usePKSE: Boolean) = apply { this.usePKSE = usePKSE }
         fun build() = AuthCodeConfig(
             debug,
             dcsBaseUrl ?: throw(RuntimeException("dcsBaseUrl is required")),
@@ -38,7 +41,8 @@ class AuthCodeConfig private constructor(
             scopes ?: throw(RuntimeException("scopes is required")),
             redirectUri ?: "${hostApplicationContext!!.packageName}.ticketauth://callback?",
             onNewAccessTokenCallback,
-            onAuthResultCallback
+            onAuthResultCallback,
+            usePKSE
         )
     }
 }

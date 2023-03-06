@@ -45,6 +45,14 @@ TicketAuth.setup(
 ```
 Auth state is automatically persisted between application restarts.
 
+#### PKCE
+PKCE is enabled by default. To turn it off use:
+```kotlin
+    .usePKCE(false)
+```
+
+__There is no good reason to turn off PKCE, unless the authentication server doesn't support it__ 
+
 #### redirectUri
 The library generates a default redirectUri which is package name + ".ticketauth" if you for one
 reason or another needs to manually specify a redirectUri, call this function:

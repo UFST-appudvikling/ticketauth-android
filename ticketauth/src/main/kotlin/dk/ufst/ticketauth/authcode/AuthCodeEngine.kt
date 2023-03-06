@@ -44,6 +44,7 @@ internal class AuthCodeEngine(
     private val redirectUri: String,
     private val onNewAccessToken: OnNewAccessTokenCallback,
     private val onAuthResultCallback: OnAuthResultCallback,
+    private val usePKSE: Boolean,
 ): AuthEngine {
     data class AuthState (
         var accessToken: String,
@@ -59,6 +60,7 @@ internal class AuthCodeEngine(
         get() = authState?.accessToken
     private val scope = CoroutineScope(Dispatchers.Default)
     private val redirectUriParser = RedirectUriParser()
+    private var codeVerifier = ""
 
     init {
         // deserialize authstate if we have one, otherwise start with a fresh
@@ -85,6 +87,13 @@ internal class AuthCodeEngine(
             .appendQueryParameter(SCOPE, scopes)
             .appendQueryParameter(STATE, Util.generateRandomState())
             .appendQueryParameter(NONCE, Util.generateRandomState())
+            .apply {
+                if(usePKSE) {
+                    codeVerifier = PkceUtil.generateRandomCodeVerifier()
+                    appendQueryParameter(CODE_CHALLENGE, PkceUtil.deriveCodeVerifierChallenge(codeVerifier))
+                    appendQueryParameter(CODE_CHALLENGE_METHOD, PkceUtil.codeVerifierChallengeMethod)
+                }
+            }
             .build()
 
         log("authUri: $authUri")
@@ -129,12 +138,15 @@ internal class AuthCodeEngine(
     }
 
     private fun exchangeCodeForToken(result: RedirectUriParser.ParsedResult.Success) {
-        val params = mapOf(
+        val params = mutableMapOf(
             GRANT_TYPE to AUTHORIZATION_CODE,
             CODE to result.code,
             CLIENT_ID to clientId,
             REDIRECT_URI to redirectUri,
         )
+        if(usePKSE) {
+            params[CODE_VERIFIER] = codeVerifier
+        }
         try {
             log("Sending authorization request:\n${params}")
             val jsonResponse = MicroHttp.postFormUrlEncoded("${dcsBaseUrl}${TOKEN_PATH}", params)
@@ -395,6 +407,9 @@ internal class AuthCodeEngine(
         private const val ROLES = "roles"
         private const val REALM_ACCESS = "realm_access"
         private const val EXP = "exp"
+        private const val CODE_VERIFIER = "code_verifier"
+        private const val CODE_CHALLENGE = "code_challenge"
+        private const val CODE_CHALLENGE_METHOD = "code_challenge_method"
 
         private var authActivityLauncher: ActivityLauncher? = null
         private var logoutActivityLauncher: ActivityLauncher? = null
