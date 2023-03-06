@@ -6,27 +6,12 @@ import java.io.UnsupportedEncodingException
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
 import java.security.SecureRandom
-import java.util.regex.Pattern
 
 /**
  * Generates code verifiers and challenges for PKCE exchange.
  * Borrowed from AppAuth and converted to Kotlin
  */
 object PkceUtil {
-    /**
-     * The minimum permitted length for a code verifier.
-     *
-     * @see "Proof Key for Code Exchange by OAuth Public Clients
-     */
-    private const val MIN_CODE_VERIFIER_LENGTH = 43
-
-    /**
-     * The maximum permitted length for a code verifier.
-     *
-     * @see "Proof Key for Code Exchange by OAuth Public Clients
-     */
-    private const val MAX_CODE_VERIFIER_LENGTH = 128
-
     /**
      * The default entropy (in bytes) used for the code verifier.
      */
@@ -50,14 +35,7 @@ object PkceUtil {
     private const val PKCE_BASE64_ENCODE_SETTINGS =
         Base64.NO_WRAP or Base64.NO_PADDING or Base64.URL_SAFE
 
-    /**
-     * Regex for legal code verifier strings, as defined in the spec.
-     *
-     * @see "Proof Key for Code Exchange by OAuth Public Clients
-     */
-    private val REGEX_CODE_VERIFIER = Pattern.compile("^[0-9a-zA-Z\\-\\.\\_\\~]{43,128}$")
-
-    const val CODE_CHALLENGE_METHOD_S256 = "S256"
+    private const val CODE_CHALLENGE_METHOD_S256 = "S256"
 
     /**
      * Plain-text code verifier challenge method. This is only used by AppAuth for Android if
@@ -65,27 +43,8 @@ object PkceUtil {
      *
      * @see "Proof Key for Code Exchange by OAuth Public Clients
      */
-    const val CODE_CHALLENGE_METHOD_PLAIN = "plain"
+    private const val CODE_CHALLENGE_METHOD_PLAIN = "plain"
 
-    /**
-     * Throws an IllegalArgumentException if the provided code verifier is invalid.
-     *
-     * @see "Proof Key for Code Exchange by OAuth Public Clients
-     */
-    fun checkCodeVerifier(codeVerifier: String) {
-        checkArgument(
-            MIN_CODE_VERIFIER_LENGTH <= codeVerifier.length,
-            "codeVerifier length is shorter than allowed by the PKCE specification"
-        )
-        checkArgument(
-            codeVerifier.length <= MAX_CODE_VERIFIER_LENGTH,
-            "codeVerifier length is longer than allowed by the PKCE specification"
-        )
-        checkArgument(
-            REGEX_CODE_VERIFIER.matcher(codeVerifier).matches(),
-            "codeVerifier string contains illegal characters"
-        )
-    }
     /**
      * Generates a random code verifier string using the provided entropy source and the specified
      * number of bytes of entropy.
@@ -116,7 +75,7 @@ object PkceUtil {
     /**
      * Produces a challenge from a code verifier, using SHA-256 as the challenge method if the
      * system supports it (all Android devices _should_ support SHA-256), and falls back
-     * to the [&quot;plain&quot; challenge type][AuthorizationRequest.CODE_CHALLENGE_METHOD_PLAIN] if
+     * to the plain challenge type if
      * unavailable.
      */
     fun deriveCodeVerifierChallenge(codeVerifier: String): String {
@@ -136,8 +95,8 @@ object PkceUtil {
 
     /**
      * Returns the challenge method utilized on this system: typically
-     * [SHA-256][AuthorizationRequest.CODE_CHALLENGE_METHOD_S256] if supported by
-     * the system, [plain][AuthorizationRequest.CODE_CHALLENGE_METHOD_PLAIN] otherwise.
+     * SHA-256 if supported by
+     * the system, plain otherwise.
      */
     val codeVerifierChallengeMethod: String
         get() = try {
