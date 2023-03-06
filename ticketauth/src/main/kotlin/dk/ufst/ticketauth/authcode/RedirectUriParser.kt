@@ -3,8 +3,8 @@ package dk.ufst.ticketauth.authcode
 import android.net.Uri
 
 /**
- * Parses the redirect uri and params. If an error is returned it is encoded in the fragment part
- * of the URI. Since android.net.Uri doesn't support parsing that part is being done here with
+ * Parses the redirect uri and params. If an error is returned it is encoded in the fragment/query part
+ * of the URI. Since android.net.Uri doesn't support parsing the fragment part is being done here with
  * regexes. This is generally not the optimal way (a tokenizer would be a better solution)
  */
 class RedirectUriParser {
