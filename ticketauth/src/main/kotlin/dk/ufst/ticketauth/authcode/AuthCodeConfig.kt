@@ -14,6 +14,8 @@ class AuthCodeConfig private constructor(
     val redirectUri: String,
     val onNewAccessTokenCallback: OnNewAccessTokenCallback,
     val onAuthResultCallback: OnAuthResultCallback,
+    val onLoginResultCallback: OnAuthResultCallback,
+    val onLogoutResultCallback: OnAuthResultCallback,
     val usePKSE: Boolean
 ) {
     data class Builder(
@@ -24,6 +26,8 @@ class AuthCodeConfig private constructor(
         private var redirectUri: String? = null,
         private var onNewAccessTokenCallback: OnNewAccessTokenCallback = null,
         private var onAuthResultCallback: OnAuthResultCallback = null,
+        private var onLoginResultCallback: OnAuthResultCallback = null,
+        private var onLogoutResultCallback: OnAuthResultCallback = null,
         private var usePKSE: Boolean = true
     ) {
         fun debug(debug: Boolean) = apply { this.debug = debug }
@@ -33,6 +37,8 @@ class AuthCodeConfig private constructor(
         fun redirectUri(uri: String) = apply { this.redirectUri = uri }
         fun onNewAccessToken(callback: OnNewAccessTokenCallback) = apply { this.onNewAccessTokenCallback = callback}
         fun onAuthResult(callback: OnAuthResultCallback) = apply { this.onAuthResultCallback = callback}
+        fun onLoginResult(callback: OnAuthResultCallback) = apply { this.onLoginResultCallback = callback}
+        fun onLogoutResult(callback: OnAuthResultCallback) = apply { this.onLogoutResultCallback = callback}
         fun usePKSE(usePKSE: Boolean) = apply { this.usePKSE = usePKSE }
         fun build() = AuthCodeConfig(
             debug,
@@ -42,6 +48,8 @@ class AuthCodeConfig private constructor(
             redirectUri ?: "${hostApplicationContext!!.packageName}.ticketauth://callback?",
             onNewAccessTokenCallback,
             onAuthResultCallback,
+            onLoginResultCallback,
+            onLogoutResultCallback,
             usePKSE
         )
     }

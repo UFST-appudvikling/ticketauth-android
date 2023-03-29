@@ -44,6 +44,8 @@ internal class AuthCodeEngine(
     private val redirectUri: String,
     private val onNewAccessToken: OnNewAccessTokenCallback,
     private val onAuthResultCallback: OnAuthResultCallback,
+    private val onLoginResultCallback: OnAuthResultCallback,
+    private val onLogoutResultCallback: OnAuthResultCallback,
     private val usePKSE: Boolean,
 ): AuthEngine {
     data class AuthState (
@@ -111,10 +113,10 @@ internal class AuthCodeEngine(
                 val error = AuthorizationError.fromIntent(result.data!!)
                 if(error.error == BrowserManagementActivity.USER_CANCEL) {
                     log("User cancelled authorization flow")
-                    wakeThreads(AuthResult.CANCELLED_FLOW)
+                    wakeThreads(AuthResult.CANCELLED_FLOW, isLogin = true)
                 } else {
                     log("Received error authorization flow: $error")
-                    wakeThreads(AuthResult.ERROR)
+                    wakeThreads(AuthResult.ERROR, isLogin = true)
                 }
                 return
             }
@@ -126,7 +128,7 @@ internal class AuthCodeEngine(
                     log("responseUri parsed result: $parsedResult")
                     when(parsedResult) {
                         is RedirectUriParser.ParsedResult.Error -> {
-                            wakeThreads(AuthResult.ERROR)
+                            wakeThreads(AuthResult.ERROR, isLogin = true)
                         }
                         is RedirectUriParser.ParsedResult.Success -> exchangeCodeForToken(parsedResult)
                     }
@@ -134,7 +136,7 @@ internal class AuthCodeEngine(
                 return
             }
         }
-        wakeThreads(AuthResult.ERROR)
+        wakeThreads(AuthResult.ERROR, isLogin = true)
     }
 
     private fun exchangeCodeForToken(result: RedirectUriParser.ParsedResult.Success) {
@@ -151,11 +153,11 @@ internal class AuthCodeEngine(
             log("Sending authorization request:\n${params}")
             val jsonResponse = MicroHttp.postFormUrlEncoded("${dcsBaseUrl}${TOKEN_PATH}", params)
             processTokenResponse(jsonResponse)
-            wakeThreads(AuthResult.SUCCESS)
+            wakeThreads(AuthResult.SUCCESS, isLogin = true)
         } catch (t : Throwable) {
             log("Token endpoint called failed with exception: ${t.message}")
             t.printStackTrace()
-            wakeThreads(AuthResult.ERROR)
+            wakeThreads(AuthResult.ERROR, isLogin = true)
         }
     }
 
@@ -218,7 +220,7 @@ internal class AuthCodeEngine(
     override fun launchLogoutIntent() {
         if(authState == null) {
             log("Cannot call logout endpoint with no id token")
-            wakeThreads(AuthResult.ERROR)
+            wakeThreads(AuthResult.ERROR, isLogin = false)
             return
         }
         val logoutUri = Uri.parse("${dcsBaseUrl}${LOGOUT_PATH}").buildUpon()
@@ -243,10 +245,10 @@ internal class AuthCodeEngine(
                 val error = AuthorizationError.fromIntent(result.data!!)
                 if(error.error == BrowserManagementActivity.USER_CANCEL) {
                     log("User cancelled authorization flow")
-                    wakeThreads(AuthResult.CANCELLED_FLOW)
+                    wakeThreads(AuthResult.CANCELLED_FLOW, isLogin = false)
                 } else {
                     log("Received error authorization flow: $error")
-                    wakeThreads(AuthResult.ERROR)
+                    wakeThreads(AuthResult.ERROR, isLogin = false)
                 }
                 return
             }
@@ -256,15 +258,15 @@ internal class AuthCodeEngine(
                 if(responseUri.toString().startsWith(redirectUri)) {
                     clear()
                     roles.clear()
-                    wakeThreads(AuthResult.SUCCESS)
+                    wakeThreads(AuthResult.SUCCESS, isLogin = false)
                 } else {
                     log("wrong uri, expected: $redirectUri")
-                    wakeThreads(AuthResult.ERROR)
+                    wakeThreads(AuthResult.ERROR, isLogin = false)
                 }
                 return
             }
         }
-        wakeThreads(AuthResult.ERROR)
+        wakeThreads(AuthResult.ERROR, isLogin = false)
     }
 
     override fun needsTokenRefresh(): Boolean {
@@ -301,7 +303,7 @@ internal class AuthCodeEngine(
         scope.cancel()
     }
 
-    private fun wakeThreads(result: AuthResult) {
+    private fun wakeThreads(result: AuthResult, isLogin: Boolean) {
         // notify waiting jobs and callbacks
         for(job in jobs.values) {
             job.result = result
@@ -317,6 +319,19 @@ internal class AuthCodeEngine(
         onAuthResultCallback?.let { callback ->
             runOnUiThread {
                 callback.invoke(result)
+            }
+        }
+        if(isLogin) {
+            onLoginResultCallback?.let { callback ->
+                runOnUiThread {
+                    callback.invoke(result)
+                }
+            }
+        } else {
+            onLogoutResultCallback?.let { callback ->
+                runOnUiThread {
+                    callback.invoke(result)
+                }
             }
         }
     }

@@ -29,6 +29,8 @@ object TicketAuth {
             redirectUri = config.redirectUri,
             onNewAccessToken = config.onNewAccessTokenCallback,
             onAuthResultCallback = config.onAuthResultCallback,
+            onLoginResultCallback = config.onLoginResultCallback,
+            onLogoutResultCallback = config.onLogoutResultCallback,
             usePKSE = config.usePKSE
         )
         authenticator = AuthenticatorImpl(engine!!)
