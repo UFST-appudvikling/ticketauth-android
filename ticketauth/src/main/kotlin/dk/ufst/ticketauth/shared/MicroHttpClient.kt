@@ -21,7 +21,7 @@ import javax.net.ssl.X509TrustManager
  * shipped with android)
  */
 internal object MicroHttp {
-    private var unsafe: Boolean = false
+    var unsafe: Boolean = false
 
     private fun unsafeHttps(https: HttpsURLConnection) {
         // Create a trust manager that does not validate certificate chains

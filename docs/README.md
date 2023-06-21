@@ -128,6 +128,13 @@ This is handy if you want to centralize error handling etc
 
 If you only want a callback for either login or logout use onLoginResult or onLogoutResult.
 
+### allowUnsafeHttps
+Use this if you run against a server with a homemade certificate. This is not recommended
+
+```kotlin
+   .allowUnsafeHttps(true)
+```
+
 ## Authenticator object
 When TicketAuth is configured you can get a Authenticator object like this:
 
