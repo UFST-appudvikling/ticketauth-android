@@ -1,7 +1,7 @@
-# TicketAuth Android 1.1.3
+# TicketAuth Android 1.1.4
 
 Small android library that simplifies OAuth Code flow (web logins).
-This describes release 1.1.3, for earlier versions of the documentation, consult the relevant release branches.
+This describes release 1.1.4, for earlier versions of the documentation, consult the relevant release branches.
 
 # Usage
 
@@ -127,6 +127,13 @@ This is handy if you want to centralize error handling etc
 ```
 
 If you only want a callback for either login or logout use onLoginResult or onLogoutResult.
+
+### allowUnsafeHttps
+Use this if you run against a server with a homemade certificate. This is not recommended
+
+```kotlin
+   .allowUnsafeHttps(true)
+```
 
 ## Authenticator object
 When TicketAuth is configured you can get a Authenticator object like this:

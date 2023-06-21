@@ -31,7 +31,8 @@ object TicketAuth {
             onAuthResultCallback = config.onAuthResultCallback,
             onLoginResultCallback = config.onLoginResultCallback,
             onLogoutResultCallback = config.onLogoutResultCallback,
-            usePKSE = config.usePKSE
+            usePKSE = config.usePKSE,
+            allowUnsafeHttps = config.allowUnsafeHttps
         )
         authenticator = AuthenticatorImpl(engine!!)
     }
@@ -44,7 +45,8 @@ object TicketAuth {
             sharedPrefs = sharedPrefs,
             onNewAccessToken = config.onNewAccessTokenCallback,
             onAuthResultCallback = config.onAuthResultCallback,
-            userConfig = config.userConfig
+            userConfig = config.userConfig,
+            allowUnsafeHttps = config.allowUnsafeHttps
         )
         authenticator = AuthenticatorImpl(engine!!)
     }

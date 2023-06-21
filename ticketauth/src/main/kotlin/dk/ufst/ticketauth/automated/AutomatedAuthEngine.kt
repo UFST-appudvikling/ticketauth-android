@@ -35,7 +35,8 @@ internal class AutomatedAuthEngine(
     private val sharedPrefs: SharedPreferences,
     private val onNewAccessToken: OnNewAccessTokenCallback,
     private val onAuthResultCallback: OnAuthResultCallback,
-    private val userConfig: JSONObject
+    private val userConfig: JSONObject,
+    allowUnsafeHttps: Boolean
 ): AuthEngine {
     private var tokenUrl: String = ""
     data class AuthState (
@@ -57,6 +58,7 @@ internal class AutomatedAuthEngine(
     private var users: List<AutomatedUser> = emptyList()
 
     init {
+        MicroHttp.unsafe = allowUnsafeHttps
         parseUserConfig()
         // deserialize authstate if we have one, otherwise start with a fresh
         sharedPrefs.getString("accessToken", null)?.let {

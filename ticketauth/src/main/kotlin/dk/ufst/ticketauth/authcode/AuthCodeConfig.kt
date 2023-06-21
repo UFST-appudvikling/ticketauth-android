@@ -16,7 +16,8 @@ class AuthCodeConfig private constructor(
     val onAuthResultCallback: OnAuthResultCallback,
     val onLoginResultCallback: OnAuthResultCallback,
     val onLogoutResultCallback: OnAuthResultCallback,
-    val usePKSE: Boolean
+    val usePKSE: Boolean,
+    val allowUnsafeHttps: Boolean
 ) {
     data class Builder(
         private var debug: Boolean = false,
@@ -28,7 +29,8 @@ class AuthCodeConfig private constructor(
         private var onAuthResultCallback: OnAuthResultCallback = null,
         private var onLoginResultCallback: OnAuthResultCallback = null,
         private var onLogoutResultCallback: OnAuthResultCallback = null,
-        private var usePKSE: Boolean = true
+        private var usePKSE: Boolean = true,
+        private var allowUnsafeHttps: Boolean = false
     ) {
         fun debug(debug: Boolean) = apply { this.debug = debug }
         fun dcsBaseUrl(url: String) = apply { this.dcsBaseUrl = url }
@@ -40,6 +42,7 @@ class AuthCodeConfig private constructor(
         fun onLoginResult(callback: OnAuthResultCallback) = apply { this.onLoginResultCallback = callback}
         fun onLogoutResult(callback: OnAuthResultCallback) = apply { this.onLogoutResultCallback = callback}
         fun usePKSE(usePKSE: Boolean) = apply { this.usePKSE = usePKSE }
+        fun allowUnsafeHttps(allowUnsafeHttps: Boolean) = apply { this.allowUnsafeHttps = allowUnsafeHttps }
         fun build() = AuthCodeConfig(
             debug,
             dcsBaseUrl ?: throw(RuntimeException("dcsBaseUrl is required")),
@@ -50,7 +53,8 @@ class AuthCodeConfig private constructor(
             onAuthResultCallback,
             onLoginResultCallback,
             onLogoutResultCallback,
-            usePKSE
+            usePKSE,
+            allowUnsafeHttps
         )
     }
 }

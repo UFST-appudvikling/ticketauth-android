@@ -47,6 +47,7 @@ internal class AuthCodeEngine(
     private val onLoginResultCallback: OnAuthResultCallback,
     private val onLogoutResultCallback: OnAuthResultCallback,
     private val usePKSE: Boolean,
+    allowUnsafeHttps: Boolean
 ): AuthEngine {
     data class AuthState (
         var accessToken: String,
@@ -65,6 +66,7 @@ internal class AuthCodeEngine(
     private var codeVerifier = ""
 
     init {
+        MicroHttp.unsafe = allowUnsafeHttps
         // deserialize authstate if we have one, otherwise start with a fresh
         if(sharedPrefs.contains(ACCESS_TOKEN) && sharedPrefs.contains(REFRESH_TOKEN) && sharedPrefs.contains(
                 ID_TOKEN)) {

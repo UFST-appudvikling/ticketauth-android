@@ -12,12 +12,14 @@ import java.nio.charset.Charset
 class AutomatedAuthConfig private constructor(
     val onNewAccessTokenCallback: OnNewAccessTokenCallback,
     val onAuthResultCallback: OnAuthResultCallback,
-    val userConfig: JSONObject
+    val userConfig: JSONObject,
+    val allowUnsafeHttps: Boolean
 ) {
     data class Builder(
         private var onNewAccessTokenCallback: OnNewAccessTokenCallback = null,
         private var onAuthResultCallback: OnAuthResultCallback = null,
-        private var userConfig: JSONObject? = null
+        private var userConfig: JSONObject? = null,
+        private var allowUnsafeHttps: Boolean = false
     ) {
         fun onNewAccessToken(callback: OnNewAccessTokenCallback) = apply { this.onNewAccessTokenCallback = callback}
         fun onAuthResult(callback: OnAuthResultCallback) = apply { this.onAuthResultCallback = callback}
@@ -28,10 +30,13 @@ class AutomatedAuthConfig private constructor(
                 throw(RuntimeException("Configuration cannot be parsed as JSON"))
             }
         }
+        fun allowUnsafeHttps(allowUnsafeHttps: Boolean) = apply { this.allowUnsafeHttps = allowUnsafeHttps }
+
         fun build() = AutomatedAuthConfig(
             onNewAccessTokenCallback,
             onAuthResultCallback,
-            userConfig ?: throw(RuntimeException("No configuration specified"))
+            userConfig ?: throw(RuntimeException("No configuration specified")),
+            allowUnsafeHttps
         )
     }
 
