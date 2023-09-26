@@ -159,7 +159,7 @@ Following values can be returned by prepareCall:
 ```kotlin
 when(authenticator.prepareCall()) {
     AuthResult.CANCELLED_FLOW -> TODO() // return status so domain layer can decide what to do
-    AuthResult.ERROR -> TODO() // // return status so domain layer can decide what to do
+    is AuthResult.ERROR -> TODO() // // return status so domain layer can decide what to do
     AuthResult.SUCCESS -> TODO() // perform network call and return data or error
 }
 ```
