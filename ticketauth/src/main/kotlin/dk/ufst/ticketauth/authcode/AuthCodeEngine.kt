@@ -12,6 +12,7 @@ import androidx.activity.result.ActivityResult
 import dk.ufst.ticketauth.ActivityLauncher
 import dk.ufst.ticketauth.AuthEngine
 import dk.ufst.ticketauth.AuthResult
+import dk.ufst.ticketauth.ErrorCause
 import dk.ufst.ticketauth.OnAuthResultCallback
 import dk.ufst.ticketauth.OnNewAccessTokenCallback
 import dk.ufst.ticketauth.log
@@ -118,7 +119,7 @@ internal class AuthCodeEngine(
                     wakeThreads(AuthResult.CANCELLED_FLOW, isLogin = true)
                 } else {
                     log("Received error authorization flow: $error")
-                    wakeThreads(AuthResult.ERROR, isLogin = true)
+                    wakeThreads(AuthResult.ERROR(ErrorCause.AuthorizationFlow(error)), isLogin = true)
                 }
                 return
             }
@@ -130,7 +131,7 @@ internal class AuthCodeEngine(
                     log("responseUri parsed result: $parsedResult")
                     when(parsedResult) {
                         is RedirectUriParser.ParsedResult.Error -> {
-                            wakeThreads(AuthResult.ERROR, isLogin = true)
+                            wakeThreads(AuthResult.ERROR(ErrorCause.ParseRedirectUri(parsedResult)), isLogin = true)
                         }
                         is RedirectUriParser.ParsedResult.Success -> exchangeCodeForToken(parsedResult)
                     }
@@ -138,7 +139,7 @@ internal class AuthCodeEngine(
                 return
             }
         }
-        wakeThreads(AuthResult.ERROR, isLogin = true)
+        wakeThreads(AuthResult.ERROR(ErrorCause.UnknownAuthIntentResult(result)), isLogin = true)
     }
 
     private fun exchangeCodeForToken(result: RedirectUriParser.ParsedResult.Success) {
@@ -159,7 +160,7 @@ internal class AuthCodeEngine(
         } catch (t : Throwable) {
             log("Token endpoint called failed with exception: ${t.message}")
             t.printStackTrace()
-            wakeThreads(AuthResult.ERROR, isLogin = true)
+            wakeThreads(AuthResult.ERROR(ErrorCause.GetToken(throwable = t)), isLogin = true)
         }
     }
 
@@ -222,7 +223,7 @@ internal class AuthCodeEngine(
     override fun launchLogoutIntent() {
         if(authState == null) {
             log("Cannot call logout endpoint with no id token")
-            wakeThreads(AuthResult.ERROR, isLogin = false)
+            wakeThreads(AuthResult.ERROR(ErrorCause.MissingIdToken), isLogin = false)
             return
         }
         val logoutUri = Uri.parse("${dcsBaseUrl}${LOGOUT_PATH}").buildUpon()
@@ -250,7 +251,7 @@ internal class AuthCodeEngine(
                     wakeThreads(AuthResult.CANCELLED_FLOW, isLogin = false)
                 } else {
                     log("Received error authorization flow: $error")
-                    wakeThreads(AuthResult.ERROR, isLogin = false)
+                    wakeThreads(AuthResult.ERROR(ErrorCause.AuthorizationFlow(error)), isLogin = false)
                 }
                 return
             }
@@ -263,12 +264,17 @@ internal class AuthCodeEngine(
                     wakeThreads(AuthResult.SUCCESS, isLogin = false)
                 } else {
                     log("wrong uri, expected: $redirectUri")
-                    wakeThreads(AuthResult.ERROR, isLogin = false)
+                    wakeThreads(
+                        AuthResult.ERROR(ErrorCause.UnknownRedirectUri(
+                            expectedRedirectUri = redirectUri,
+                            actualRedirectUri = responseUri.toString(),
+                        )), isLogin = false
+                    )
                 }
                 return
             }
         }
-        wakeThreads(AuthResult.ERROR, isLogin = false)
+        wakeThreads(AuthResult.ERROR(ErrorCause.UnknownAuthIntentResult(result)), isLogin = false)
     }
 
     override fun needsTokenRefresh(): Boolean {

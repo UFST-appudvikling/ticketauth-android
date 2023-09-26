@@ -11,6 +11,7 @@ import androidx.activity.result.ActivityResult
 import dk.ufst.ticketauth.ActivityLauncher
 import dk.ufst.ticketauth.AuthEngine
 import dk.ufst.ticketauth.AuthResult
+import dk.ufst.ticketauth.ErrorCause
 import dk.ufst.ticketauth.OnAuthResultCallback
 import dk.ufst.ticketauth.OnNewAccessTokenCallback
 import dk.ufst.ticketauth.shared.AuthJob
@@ -88,7 +89,7 @@ internal class AutomatedAuthEngine(
             }
         } catch (t : Throwable) {
             log("Cannot launch select user activity due to exception: ${t.message}")
-            wakeThreads(AuthResult.ERROR)
+            wakeThreads(AuthResult.ERROR(ErrorCause.LaunchIntent(t)))
         }
     }
 
@@ -112,7 +113,7 @@ internal class AutomatedAuthEngine(
                 loginUser(users[index])
             } ?: run {
                 log("ActivityResult yielded no data (intent) to process")
-                wakeThreads(AuthResult.ERROR)
+                wakeThreads(AuthResult.ERROR(ErrorCause.UnknownAuthIntentResult(result)))
             }
         }
     }
@@ -143,7 +144,7 @@ internal class AutomatedAuthEngine(
                 processTokenResponse(jsonResponse)
             } catch (t : Throwable) {
                 log("Token endpoint called failed with exception: ${t.message}")
-                wakeThreads(AuthResult.ERROR)
+                wakeThreads(AuthResult.ERROR(ErrorCause.GetToken(t)))
             }
         }
     }
@@ -272,4 +273,3 @@ internal class AutomatedAuthEngine(
         }
     }
 }
-
