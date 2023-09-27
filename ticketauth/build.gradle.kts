@@ -18,7 +18,7 @@ android {
         buildConfigField(
             "String",
             "TICKETAUTH_VERSION",
-            "\"1.1.4\""
+            "\"1.2.0\""
         )
     }
 

@@ -1,7 +1,7 @@
-# TicketAuth Android 1.1.4
+# TicketAuth Android 1.2.0
 
 Small android library that simplifies OAuth Code flow (web logins).
-This describes release 1.1.4, for earlier versions of the documentation, consult the relevant release branches.
+This describes release 1.2.0, for earlier versions of the documentation, consult the relevant release branches.
 
 # Usage
 
@@ -145,7 +145,7 @@ This is used for communicating with the library.
 
 ### Prepare network code
 For TicketAuth to do its thing, you need to call a method (prepareCall) before issuing
-your network calls. If it returns AuthResult.ERROR it means that the library failed in obtaining
+your network calls. If it returns AuthResult.Error it means that the library failed in obtaining
 a valid access token. 
 
 #### Return values
@@ -153,14 +153,14 @@ a valid access token.
 Following values can be returned by prepareCall:
 
 - AuthResult.SUCCESS, we got a token, all good
-- AuthResult.CANCELLED_FLOW, user cancelled the login flow (by closing the browser window)
-- AuthResult.ERROR, Something went wrong, likely network error.
+- AuthResult.CancelledFlow, user cancelled the login flow (by closing the browser window)
+- AuthResult.Error, Something went wrong, likely network error.
 
 ```kotlin
 when(authenticator.prepareCall()) {
-    AuthResult.CANCELLED_FLOW -> TODO() // return status so domain layer can decide what to do
-    AuthResult.ERROR -> TODO() // // return status so domain layer can decide what to do
-    AuthResult.SUCCESS -> TODO() // perform network call and return data or error
+    AuthResult.CancelledFlow -> TODO() // return status so domain layer can decide what to do
+    is AuthResult.Error -> TODO() // // return status so domain layer can decide what to do
+    AuthResult.Success -> TODO() // perform network call and return data or error
 }
 ```
 
@@ -185,13 +185,13 @@ etc.
 ```kotlin
 TicketAuth.authenticator().login { result ->
     when(result) {
-        AuthResult.SUCCESS -> {
+        AuthResult.Success -> {
             // do something
         }
-        AuthResult.CANCELLED_FLOW -> {
+        AuthResult.CancelledFlow -> {
             // do something
         }
-        AuthResult.ERROR -> {
+        is AuthResult.Error -> {
             // do something
         }
     }
@@ -215,13 +215,13 @@ It is possible to get called back whenever the logout flow is completed.
 ```kotlin
 TicketAuth.authenticator().logout { result ->
     when(result) {
-        AuthResult.SUCCESS -> {
+        AuthResult.Success -> {
             // do something
         }
-        AuthResult.CANCELLED_FLOW -> {
+        AuthResult.CancelledFlow -> {
             // do something
         }
-        AuthResult.ERROR -> {
+        is AuthResult.Error -> {
             // do something
         }
     }

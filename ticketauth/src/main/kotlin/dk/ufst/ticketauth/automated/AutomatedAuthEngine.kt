@@ -11,6 +11,7 @@ import androidx.activity.result.ActivityResult
 import dk.ufst.ticketauth.ActivityLauncher
 import dk.ufst.ticketauth.AuthEngine
 import dk.ufst.ticketauth.AuthResult
+import dk.ufst.ticketauth.ErrorCause
 import dk.ufst.ticketauth.OnAuthResultCallback
 import dk.ufst.ticketauth.OnNewAccessTokenCallback
 import dk.ufst.ticketauth.shared.AuthJob
@@ -88,7 +89,7 @@ internal class AutomatedAuthEngine(
             }
         } catch (t : Throwable) {
             log("Cannot launch select user activity due to exception: ${t.message}")
-            wakeThreads(AuthResult.ERROR)
+            wakeThreads(AuthResult.Error(ErrorCause.LaunchIntent(t)))
         }
     }
 
@@ -97,14 +98,14 @@ internal class AutomatedAuthEngine(
         authState = null
         persistAuthState()
         roles.clear()
-        wakeThreads(AuthResult.SUCCESS)
+        wakeThreads(AuthResult.Success)
     }
 
     private fun processSelectUserResult(result: ActivityResult) {
         log("processAuthResult $result")
         if(result.resultCode == Activity.RESULT_CANCELED) {
             log("Select user activity was cancelled by user")
-            wakeThreads(AuthResult.CANCELLED_FLOW)
+            wakeThreads(AuthResult.CancelledFlow)
         } else {
             result.data?.let { data ->
                 val index = data.getIntExtra("index", -1)
@@ -112,7 +113,7 @@ internal class AutomatedAuthEngine(
                 loginUser(users[index])
             } ?: run {
                 log("ActivityResult yielded no data (intent) to process")
-                wakeThreads(AuthResult.ERROR)
+                wakeThreads(AuthResult.Error(ErrorCause.UnknownAuthIntentResult(result)))
             }
         }
     }
@@ -143,7 +144,7 @@ internal class AutomatedAuthEngine(
                 processTokenResponse(jsonResponse)
             } catch (t : Throwable) {
                 log("Token endpoint called failed with exception: ${t.message}")
-                wakeThreads(AuthResult.ERROR)
+                wakeThreads(AuthResult.Error(ErrorCause.GetToken(t)))
             }
         }
     }
@@ -154,7 +155,7 @@ internal class AutomatedAuthEngine(
         log("Token expiration: ${authState?.tokenExpTime}")
         persistAuthState()
         onAccessToken()
-        wakeThreads(AuthResult.SUCCESS)
+        wakeThreads(AuthResult.Success)
     }
 
     private fun wakeThreads(result: AuthResult) {
@@ -272,4 +273,3 @@ internal class AutomatedAuthEngine(
         }
     }
 }
-
