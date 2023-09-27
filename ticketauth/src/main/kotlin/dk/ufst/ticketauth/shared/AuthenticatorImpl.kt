@@ -48,7 +48,7 @@ internal class AuthenticatorImpl(
 
     override fun prepareCall(): AuthResult {
         val job = spawnJob(noReturn = false)
-        var result: AuthResult = AuthResult.SUCCESS
+        var result: AuthResult = AuthResult.Success
         if(engine.needsTokenRefresh()) {
             log("Token needs refresh, pausing network call")
             // first caller creates the latch and waits, subsequent callers just wait on the latch

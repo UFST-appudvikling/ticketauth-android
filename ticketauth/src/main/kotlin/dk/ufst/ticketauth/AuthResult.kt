@@ -5,9 +5,9 @@ import dk.ufst.ticketauth.authcode.AuthorizationError
 import dk.ufst.ticketauth.authcode.RedirectUriParser
 
 sealed interface AuthResult {
-    object SUCCESS : AuthResult
-    object CANCELLED_FLOW : AuthResult
-    data class ERROR(val reason: ErrorCause) : AuthResult
+    object Success : AuthResult
+    object CancelledFlow : AuthResult
+    data class Error(val reason: ErrorCause) : AuthResult
 }
 
 sealed interface ErrorCause {

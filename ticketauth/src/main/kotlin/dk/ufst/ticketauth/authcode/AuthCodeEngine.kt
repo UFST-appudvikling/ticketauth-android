@@ -116,10 +116,10 @@ internal class AuthCodeEngine(
                 val error = AuthorizationError.fromIntent(result.data!!)
                 if(error.error == BrowserManagementActivity.USER_CANCEL) {
                     log("User cancelled authorization flow")
-                    wakeThreads(AuthResult.CANCELLED_FLOW, isLogin = true)
+                    wakeThreads(AuthResult.CancelledFlow, isLogin = true)
                 } else {
                     log("Received error authorization flow: $error")
-                    wakeThreads(AuthResult.ERROR(ErrorCause.AuthorizationFlow(error)), isLogin = true)
+                    wakeThreads(AuthResult.Error(ErrorCause.AuthorizationFlow(error)), isLogin = true)
                 }
                 return
             }
@@ -131,7 +131,7 @@ internal class AuthCodeEngine(
                     log("responseUri parsed result: $parsedResult")
                     when(parsedResult) {
                         is RedirectUriParser.ParsedResult.Error -> {
-                            wakeThreads(AuthResult.ERROR(ErrorCause.ParseRedirectUri(parsedResult)), isLogin = true)
+                            wakeThreads(AuthResult.Error(ErrorCause.ParseRedirectUri(parsedResult)), isLogin = true)
                         }
                         is RedirectUriParser.ParsedResult.Success -> exchangeCodeForToken(parsedResult)
                     }
@@ -139,7 +139,7 @@ internal class AuthCodeEngine(
                 return
             }
         }
-        wakeThreads(AuthResult.ERROR(ErrorCause.UnknownAuthIntentResult(result)), isLogin = true)
+        wakeThreads(AuthResult.Error(ErrorCause.UnknownAuthIntentResult(result)), isLogin = true)
     }
 
     private fun exchangeCodeForToken(result: RedirectUriParser.ParsedResult.Success) {
@@ -156,11 +156,11 @@ internal class AuthCodeEngine(
             log("Sending authorization request:\n${params}")
             val jsonResponse = MicroHttp.postFormUrlEncoded("${dcsBaseUrl}${TOKEN_PATH}", params)
             processTokenResponse(jsonResponse)
-            wakeThreads(AuthResult.SUCCESS, isLogin = true)
+            wakeThreads(AuthResult.Success, isLogin = true)
         } catch (t : Throwable) {
             log("Token endpoint called failed with exception: ${t.message}")
             t.printStackTrace()
-            wakeThreads(AuthResult.ERROR(ErrorCause.GetToken(throwable = t)), isLogin = true)
+            wakeThreads(AuthResult.Error(ErrorCause.GetToken(throwable = t)), isLogin = true)
         }
     }
 
@@ -223,7 +223,7 @@ internal class AuthCodeEngine(
     override fun launchLogoutIntent() {
         if(authState == null) {
             log("Cannot call logout endpoint with no id token")
-            wakeThreads(AuthResult.ERROR(ErrorCause.MissingIdToken), isLogin = false)
+            wakeThreads(AuthResult.Error(ErrorCause.MissingIdToken), isLogin = false)
             return
         }
         val logoutUri = Uri.parse("${dcsBaseUrl}${LOGOUT_PATH}").buildUpon()
@@ -248,10 +248,10 @@ internal class AuthCodeEngine(
                 val error = AuthorizationError.fromIntent(result.data!!)
                 if(error.error == BrowserManagementActivity.USER_CANCEL) {
                     log("User cancelled authorization flow")
-                    wakeThreads(AuthResult.CANCELLED_FLOW, isLogin = false)
+                    wakeThreads(AuthResult.CancelledFlow, isLogin = false)
                 } else {
                     log("Received error authorization flow: $error")
-                    wakeThreads(AuthResult.ERROR(ErrorCause.AuthorizationFlow(error)), isLogin = false)
+                    wakeThreads(AuthResult.Error(ErrorCause.AuthorizationFlow(error)), isLogin = false)
                 }
                 return
             }
@@ -261,11 +261,11 @@ internal class AuthCodeEngine(
                 if(responseUri.toString().startsWith(redirectUri)) {
                     clear()
                     roles.clear()
-                    wakeThreads(AuthResult.SUCCESS, isLogin = false)
+                    wakeThreads(AuthResult.Success, isLogin = false)
                 } else {
                     log("wrong uri, expected: $redirectUri")
                     wakeThreads(
-                        AuthResult.ERROR(ErrorCause.UnknownRedirectUri(
+                        AuthResult.Error(ErrorCause.UnknownRedirectUri(
                             expectedRedirectUri = redirectUri,
                             actualRedirectUri = responseUri.toString(),
                         )), isLogin = false
@@ -274,7 +274,7 @@ internal class AuthCodeEngine(
                 return
             }
         }
-        wakeThreads(AuthResult.ERROR(ErrorCause.UnknownAuthIntentResult(result)), isLogin = false)
+        wakeThreads(AuthResult.Error(ErrorCause.UnknownAuthIntentResult(result)), isLogin = false)
     }
 
     override fun needsTokenRefresh(): Boolean {
